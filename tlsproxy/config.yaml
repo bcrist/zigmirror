@@ -6,7 +6,7 @@ email: you+letsencrypt@example.com
 httpAddr: ":80"
 tlsAddr: ":443"
 
-cacheDir: /var/cache/tlsproxy/
+cacheDir: /usr/local/var/cache/tlsproxy/
 
 backends:
 - serverNames:

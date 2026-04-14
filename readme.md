@@ -68,12 +68,12 @@ sudo useradd --system --shell /usr/sbin/nologin tlsproxy
 sudo cp tlsproxy /usr/local/bin/
 sudo chown tlsproxy:tlsproxy /usr/local/bin/tlsproxy
 
-sudo mkdir /usr/local/etc/tlsproxy
+sudo mkdir -p /usr/local/etc/tlsproxy
 sudo cp ../zigmirror/tlsproxy/config.yaml /usr/local/etc/tlsproxy/
 sudo vi /usr/local/etc/tlsproxy/config.yaml # modify as desired
 sudo chown tlsproxy:tlsproxy /usr/local/etc/tlsproxy/config.yaml
 
-sudo mkdir /var/cache/tlsproxy
+sudo mkdir -p /usr/local/var/cache/tlsproxy
 
 sudo cp ../zigmirror/tlsproxy/tlsproxy.service /etc/systemd/system/
 sudo vi /etc/systemd/system/tlsproxy.service # modify as desired
