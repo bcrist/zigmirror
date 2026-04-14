@@ -1,0 +1,93 @@
+<html>
+    <head>
+        <title>\\hostname// Server Statistics</title>
+        <link rel="stylesheet" href="\\ @resource "style.css" //">
+    </head>
+    <body>
+        <h1>\\hostname// Server Statistics</h1>
+        <table>
+            <tr><th>Server start time</th><td class="left">\\server_start_time//</td></tr>
+            <tr><th>Artifacts served</th><td class="left">\\artifacts_served// (\\artifacts_served_per_hour///hr)</td></tr>
+            <tr><th>Upstream artifacts downloaded</th><td class="left">\\artifacts_downloaded// (\\artifacts_downloaded_per_hour///hr)</td></tr>
+            <tr><th>Memory cache evictions</th><td class="left">\\cache.mem.evictions// (\\cache.mem.evictions_per_hour///hr)</td></tr>
+            <tr><th>Filesystem cache evictions</th><td class="left">\\cache.fs.evictions// (\\cache.fs.evictions_per_hour///hr)</td></tr>
+            <tr><th>Memory cache usage</th><td class="left">\\cache.mem.bytes// (\\cache.mem.active_entries// entries)</td></tr>
+            <tr><th>Filesystem cache usage</th><td class="left">\\cache.fs.bytes// (\\cache.fs.active_entries// entries)</td></tr>
+            <tr><th>Upstream archive timeout</th><td class="left">\\upstream_head_time_archive//</td></tr>
+            <tr><th>Upstream minisig timeout</th><td class="left">\\upstream_head_time_minisig//</td></tr>
+        </table>
+
+        <h2>Memory Cache</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Slot</th>
+                    <th>Type</th>
+                    <th>Version</th>
+                    <th>Extension</th>
+                    <th>Bytes</th>
+                    <th>Request Count</th>
+                    <th>First Request</th>
+                    <th>Last Request</th>
+                    <th>Min. Duration</th>
+                    <th>Max. Duration</th>
+                    <th>Avg. Duration</th>
+                    <th>Eviction Score</th>
+                </tr>
+            </thead>
+\\ cache.mem.entries:
+            <tr>
+                <td>\\index//</td>
+                <td>\\artifact_type//</td>
+                <td><a href="/\\filename//">\\version//</a></td>
+                <td>\\extension//</td>
+                <td>\\bytes//</td>
+                <td>\\request_count//</td>
+                <td>\\first_request_time//</td>
+                <td>\\last_request_time//</td>
+                <td>\\request_duration_min//</td>
+                <td>\\request_duration_max//</td>
+                <td>\\request_duration_avg//</td>
+                <td>\\eviction_score//</td>
+            </tr>
+\\ ~
+        </table>
+
+        <h2>Filesystem Cache</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Slot</th>
+                    <th>Type</th>
+                    <th>Version</th>
+                    <th>Extension</th>
+                    <th>Bytes</th>
+                    <th>Request Count</th>
+                    <th>First Request</th>
+                    <th>Last Request</th>
+                    <th>Min. Duration</th>
+                    <th>Max. Duration</th>
+                    <th>Avg. Duration</th>
+                    <th>Eviction Score</th>
+                </tr>
+            </thead>
+\\ cache.fs.entries:
+            <tr>
+                <td>\\index//</td>
+                <td>\\artifact_type//</td>
+                <td><a href="/\\filename//">\\version//</a></td>
+                <td>\\extension//</td>
+                <td>\\bytes//</td>
+                <td>\\request_count//</td>
+                <td>\\first_request_time//</td>
+                <td>\\last_request_time//</td>
+                <td>\\request_duration_min//</td>
+                <td>\\request_duration_max//</td>
+                <td>\\request_duration_avg//</td>
+                <td>\\eviction_score//</td>
+            </tr>
+\\ ~
+        </table>
+        <footer><a href="https://github.com/bcrist/zigmirror">zigmirror \\zigmirror_version//</a></footer>
+    </body>
+</html>

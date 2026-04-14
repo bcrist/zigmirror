@@ -1,0 +1,17 @@
+
+[Unit]
+Description=tlsproxy - TLS terminating Reverse Proxy
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/tlsproxy --config=/usr/local/etc/tlsproxy/config.yaml
+Restart=on-failure
+RestartSec=5
+User=tlsproxy
+Group=tlsproxy
+Environment=TLSPROXY_PASSPHRASE=replace_me_with_random_passphrase
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target

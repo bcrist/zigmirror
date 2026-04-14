@@ -1,0 +1,18 @@
+
+[Unit]
+Description=zigmirror - Zig Community Mirror Cache Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/zigmirror /usr/local/etc/zigmirror.sx
+Restart=on-failure
+RestartSec=5
+User=zigmirror
+Group=zigmirror
+
+# Only needed if listening on port 80 directly:
+#AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target

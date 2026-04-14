@@ -1,0 +1,17 @@
+acceptTOS: true
+
+# Replace with your email:
+email: you+letsencrypt@example.com
+
+httpAddr: ":80"
+tlsAddr: ":443"
+
+cacheDir: /var/cache/tlsproxy/
+
+backends:
+- serverNames:
+  # Replace with your mirror's public hostname:
+  - zig.example.com
+  mode: http
+  addresses:
+  - 127.0.0.1:8080
