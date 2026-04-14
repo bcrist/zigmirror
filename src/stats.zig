@@ -46,11 +46,6 @@ pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_
     }, .{ .Context = Context });
 }
 
-// round to 1 decimal place
-fn round1(val: f64) f64 {
-    return @round(val * 10) / 10;
-}
-
 fn populate_cache_entries(io: std.Io, arena: std.mem.Allocator, state_entries: []Cache.Entry, stats_entries: []Cache_Entry, now: i64) !void {
     for (0.., state_entries, stats_entries) |index, *state, *stats| {
         var artifact: ?Artifact = null;
@@ -76,6 +71,10 @@ fn populate_cache_entries(io: std.Io, arena: std.mem.Allocator, state_entries: [
         const request_count = state.requests.count.load(.monotonic);
         const duration_count = state.requests.duration_count.load(.monotonic);
         const duration_total = state.requests.duration_total.load(.monotonic);
+        const first_time = state.requests.first_time.load(.monotonic);
+        const last_time = state.requests.last_time.load(.monotonic);
+        const first_to_last_ms: f64 = if (request_count > 0 and last_time > first_time) @floatFromInt(last_time - first_time) else 0;
+        const first_to_last_days = first_to_last_ms / std.time.ms_per_day;
 
         stats.* = .{
             .index = index,
@@ -84,15 +83,21 @@ fn populate_cache_entries(io: std.Io, arena: std.mem.Allocator, state_entries: [
             .artifact_type = artifact_type,
             .extension = if (artifact) |a| a.extension else null,
             .bytes = if (bytes) |b| fmt.bytes(b) else null,
-            .first_request_time = if (request_count > 0) DTO.from_timestamp_ms(state.requests.first_time.load(.monotonic), null).fmt(dtf) else null,
-            .last_request_time = if (request_count > 0) DTO.from_timestamp_ms(state.requests.last_time.load(.monotonic), null).fmt(dtf) else null,
+            .first_request_time = if (request_count > 0) DTO.from_timestamp_ms(first_time, null).fmt(dtf) else null,
+            .last_request_time = if (request_count > 0) DTO.from_timestamp_ms(last_time, null).fmt(dtf) else null,
             .request_count = if (artifact) |_| request_count else null,
+            .requests_per_day = if (first_to_last_days > 0) request_count / first_to_last_days else null,
             .request_duration_min = if (duration_count > 0) std.Io.Duration.fromMilliseconds(state.requests.duration_min.load(.monotonic)) else null,
             .request_duration_max = if (duration_count > 0) std.Io.Duration.fromMilliseconds(state.requests.duration_max.load(.monotonic)) else null,
             .request_duration_avg = if (duration_count > 0) std.Io.Duration.fromMilliseconds(@intCast(duration_total / duration_count)) else null,
             .eviction_score = eviction_score,
         };
     }
+}
+
+// round to 1 decimal place
+fn round1(val: f64) f64 {
+    return @round(val * 10) / 10;
 }
 
 const Cache_Stats = struct {
@@ -111,6 +116,7 @@ const Cache_Entry = struct {
     extension: ?Artifact.Extension,
     bytes: ?@TypeOf(fmt.bytes(0)),
     request_count: ?usize,
+    requests_per_day: ?f64,
     first_request_time: ?DTF,
     last_request_time: ?DTF,
     request_duration_min: ?std.Io.Duration,
@@ -122,9 +128,10 @@ const Cache_Entry = struct {
 const Context = struct {
     pub const cache = struct {
         pub const mem = struct {
-            pub const bytes = "d:.1";
+            pub const bytes = "{d:.1}";
             pub const entries = struct {
-                pub const bytes = "d:.1";
+                pub const bytes = "{d:.1}";
+                pub const requests_per_day = " ({d:.0}/d)";
             };
         };
         pub const fs = mem;

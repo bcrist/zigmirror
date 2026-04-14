@@ -7,7 +7,6 @@ cache: struct {
     mem: struct {
         max_entries: usize = 50,
         max_bytes: usize = 1024 * 1024 * 1024,
-        recheck_not_found_after_seconds: usize = 60,
         periodic_eviction: ?struct {
             interval_minutes: u32 = 5,
             min_age_minutes: i64 = 15,
@@ -23,9 +22,10 @@ cache: struct {
     } = .{},
 } = .{},
 request_rate_limit: ?Rate_Limiter.Config = .{},
+max_concurrent_upstream_downloads: usize = 4,
 default_upstream_timeout_seconds: u32 = 5,
 min_upstream_timeout_seconds: u32 = 2,
-max_concurrent_upstream_downloads: usize = 4,
+recheck_not_found_after_seconds: usize = 60,
 // TODO index_json_refresh_interval_minutes: usize = 60,
 // TODO show_rate_limit_stats: bool = false,
 allow_shutdown: bool = false,

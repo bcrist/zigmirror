@@ -23,7 +23,7 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
             return;
         }
 
-        if (now - ref.ptr.requests.last_time.load(.monotonic) < config.cache.mem.recheck_not_found_after_seconds * 1000) {
+        if (now - ref.ptr.requests.last_time.load(.monotonic) < config.recheck_not_found_after_seconds * 1000) {
             ref.ptr.requests.hit_not_found(now);
             return error.NotFound;
         }

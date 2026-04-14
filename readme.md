@@ -15,7 +15,7 @@ This makes it a good option to run on systems with constrained memory or disk sp
 Zig community mirrors are expected to serve over HTTPS, but good TLS support complicates server projects significantly, and often it's better/easier to just handle HTTPS termination through a load balancer or reverse proxy.  Therefore this project assumes that you'll use an external solution such as [TLSproxy](https://github.com/c2FmZQ/tlsproxy).
 
 ## Request Rate Limiting
-Basic IP-based request rate limiting is included.  When used, the HTTPS terminating proxy must set/update the `X-Forwarded-For` HTTP header.  Limiting will be applied to all IPs listed in the header, but once a request has been blocked, any remaining IPs in the list will not take a for that request.  Rate limiting can be disabled entirely by removing the `(request_rate_limit ...)` expression from the config file.
+Basic IP-based request rate limiting is included.  When used, the HTTPS terminating proxy must set/update the `X-Forwarded-For` HTTP header.  Limiting will be applied to all IPs listed in the header, but once a request has been blocked, any remaining IPs in the list will not take a hit for that request.  Rate limiting can be disabled entirely by removing the `(request_rate_limit ...)` expression from the config file.
 
 ## Memory/Disk Usage Tuning
 The `(cache (mem))` and `(cache (fs))` expressions in the config file include two inline parameters:
@@ -35,7 +35,7 @@ When serving artifacts from the filesystem, `sendfile` is utilized, so the OS's 
 ```bash
 # Build zigmirror:
 cd ~
-git clone https://github.com/bcrist/zigmirror
+git clone https://codeberg.org/bcrist/zigmirror
 cd zigmirror
 zig build -Doptimize=ReleaseSafe
 
@@ -72,6 +72,8 @@ sudo mkdir /usr/local/etc/tlsproxy
 sudo cp ../zigmirror/tlsproxy/config.yaml /usr/local/etc/tlsproxy/
 sudo vi /usr/local/etc/tlsproxy/config.yaml # modify as desired
 sudo chown tlsproxy:tlsproxy /usr/local/etc/tlsproxy/config.yaml
+
+sudo mkdir /var/cache/tlsproxy
 
 sudo cp ../zigmirror/tlsproxy/tlsproxy.service /etc/systemd/system/
 sudo vi /etc/systemd/system/tlsproxy.service # modify as desired
