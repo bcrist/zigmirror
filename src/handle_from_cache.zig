@@ -36,6 +36,12 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
         defer ref.unlock();
 
         if (ref.ptr.bytes) |bytes| {
+            if (request.req.head.method == .HEAD) {
+                try request.set_response_header("content-type", ref.ptr.artifact.?.extension.content_type());
+                try request.respond("");
+                return;
+            }
+
             const cache_dir = std.Io.Dir.cwd().createDirPathOpen(request.io, config.cache.fs.path, .{}) catch |err| switch (err) {
                 error.Canceled => return error.Canceled,
                 else => |e| {
