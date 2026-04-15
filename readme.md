@@ -1,6 +1,6 @@
 # Zig Community Mirror Server
 
-`zigmirror` is a simple, standalone [Zig Community Mirror](https://codeberg.org/ziglang/www.ziglang.org/src/branch/main/MIRRORS.md) cache server.  It utilizes two caches:
+`zigmirror` is a simple [Zig Community Mirror](https://codeberg.org/ziglang/www.ziglang.org/src/branch/main/MIRRORS.md) cache server.  It utilizes two caches:
 * A small memory cache for "strange" requests
 * A larger filesystem cache for "typical" requests
 
