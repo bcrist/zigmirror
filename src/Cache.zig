@@ -224,22 +224,22 @@ pub const Entry = struct {
     };
 
     pub fn lock_exclusive(self: *@This(), io: std.Io) !void {
-        log.debug("lock_exclusive {*}", .{ &self.rl });
+        locking_log.debug("lock_exclusive {*}", .{ &self.rl });
         try self.rl.lock(io);
     }
 
     pub fn unlock_exclusive(self: *@This(), io: std.Io) void {
-        log.debug("unlock_exclusive {*}", .{ &self.rl });
+        locking_log.debug("unlock_exclusive {*}", .{ &self.rl });
         self.rl.unlock(io);
     }
 
     pub fn lock_shared(self: *@This(), io: std.Io) !void {
-        log.debug("lock_shared {*}", .{ &self.rl });
+        locking_log.debug("lock_shared {*}", .{ &self.rl });
         try self.rl.lockShared(io);
     }
 
     pub fn unlock_shared(self: *@This(), io: std.Io) void {
-        log.debug("unlock_shared {*}", .{ &self.rl });
+        locking_log.debug("unlock_shared {*}", .{ &self.rl });
         self.rl.unlockShared(io);
     }
 
@@ -307,6 +307,7 @@ pub const Entry = struct {
 
 const Cache = @This();
 
+const locking_log = std.log.scoped(.locking);
 const log = std.log.scoped(.zigmirror);
 
 const Artifact = @import("Artifact.zig");

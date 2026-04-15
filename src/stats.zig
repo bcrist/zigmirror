@@ -13,7 +13,7 @@ pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_
 
     const cache_mem: Cache_Stats = .{
         .active_entries = try cache.mem.active_entries(),
-        .bytes = fmt.bytes(cache.mem.total_bytes.load(.monotonic)),
+        .bytes = cache.mem.total_bytes.load(.monotonic),
         .evictions = evictions_mem,
         .evictions_per_hour = round1(evictions_mem / hours_since_start),
         .entries = try arena.alloc(Cache_Entry, cache.mem.entries.len),
@@ -22,7 +22,7 @@ pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_
 
     const cache_fs: Cache_Stats = .{
         .active_entries = try cache.fs.active_entries(),
-        .bytes = fmt.bytes(cache.fs.total_bytes.load(.monotonic)),
+        .bytes = cache.fs.total_bytes.load(.monotonic),
         .evictions = evictions_fs,
         .evictions_per_hour = round1(evictions_fs / hours_since_start),
         .entries = try arena.alloc(Cache_Entry, cache.fs.entries.len),
@@ -82,14 +82,14 @@ fn populate_cache_entries(io: std.Io, arena: std.mem.Allocator, state_entries: [
             .version = version,
             .artifact_type = artifact_type,
             .extension = if (artifact) |a| a.extension else null,
-            .bytes = if (bytes) |b| fmt.bytes(b) else null,
-            .first_request_time = if (request_count > 0) DTO.from_timestamp_ms(first_time, null).fmt(dtf) else null,
-            .last_request_time = if (request_count > 0) DTO.from_timestamp_ms(last_time, null).fmt(dtf) else null,
+            .bytes = bytes,
+            .first_request_time = if (request_count > 0) first_time else null,
+            .last_request_time = if (request_count > 0) last_time else null,
             .request_count = if (artifact) |_| request_count else null,
             .requests_per_day = if (first_to_last_days > 0) request_count / first_to_last_days else null,
-            .request_duration_min = if (duration_count > 0) std.Io.Duration.fromMilliseconds(state.requests.duration_min.load(.monotonic)) else null,
-            .request_duration_max = if (duration_count > 0) std.Io.Duration.fromMilliseconds(state.requests.duration_max.load(.monotonic)) else null,
-            .request_duration_avg = if (duration_count > 0) std.Io.Duration.fromMilliseconds(@intCast(duration_total / duration_count)) else null,
+            .request_duration_min = if (duration_count > 0) state.requests.duration_min.load(.monotonic) else null,
+            .request_duration_max = if (duration_count > 0) state.requests.duration_max.load(.monotonic) else null,
+            .request_duration_avg = if (duration_count > 0) @intCast(duration_total / duration_count) else null,
             .eviction_score = eviction_score,
         };
     }
@@ -102,7 +102,7 @@ fn round1(val: f64) f64 {
 
 const Cache_Stats = struct {
     active_entries: usize,
-    bytes: @TypeOf(fmt.bytes(0)),
+    bytes: usize,
     evictions: f64,
     evictions_per_hour: f64,
     entries: []Cache_Entry,
@@ -114,24 +114,39 @@ const Cache_Entry = struct {
     version: []const u8,
     artifact_type: []const u8,
     extension: ?Artifact.Extension,
-    bytes: ?@TypeOf(fmt.bytes(0)),
+    bytes: ?usize,
     request_count: ?usize,
     requests_per_day: ?f64,
-    first_request_time: ?DTF,
-    last_request_time: ?DTF,
-    request_duration_min: ?std.Io.Duration,
-    request_duration_max: ?std.Io.Duration,
-    request_duration_avg: ?std.Io.Duration,
+    first_request_time: ?i64,
+    last_request_time: ?i64,
+    request_duration_min: ?i64,
+    request_duration_max: ?i64,
+    request_duration_avg: ?i64,
     eviction_score: ?u64,
 };
 
 const Context = struct {
     pub const cache = struct {
         pub const mem = struct {
-            pub const bytes = "{d:.1}";
+            pub fn bytes(b: usize, w: *std.Io.Writer) std.Io.Writer.Error!void {
+                try w.print("{d:.1}", .{ fmt.bytes(b) });
+            }
+
             pub const entries = struct {
-                pub const bytes = "{d:.1}";
+                pub const bytes = mem.bytes;
+
                 pub const requests_per_day = " ({d:.0}/d)";
+
+                pub fn first_request_time(ts: i64, w: *std.Io.Writer) std.Io.Writer.Error!void {
+                    try w.print("{f}", .{ DTO.from_timestamp_ms(ts, null).fmt(dtf) });
+                }
+                pub const last_request_time = first_request_time;
+
+                pub fn request_duration_min(ms: i64, w: *std.Io.Writer) std.Io.Writer.Error!void {
+                    try w.print("{f}", .{ std.Io.Duration.fromMilliseconds(ms) });
+                }
+                pub const request_duration_max = request_duration_min;
+                pub const request_duration_avg = request_duration_min;
             };
         };
         pub const fs = mem;
@@ -140,7 +155,6 @@ const Context = struct {
 
 const DTO = tempora.Date_Time.With_Offset;
 const dtf = DTO.sql_local;
-const DTF = DTO.Formatter(dtf);
 
 const zon = @import("zon");
 const Config = @import("Config.zig");

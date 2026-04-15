@@ -5,7 +5,7 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
 }
 
 fn download(request: *http.Request, artifact: Artifact, cache: *Caches, server_stats: *Server_Stats, config: *const Config, arena: std.mem.Allocator) !void {
-    log.debug("Preparing to download {f}", .{ artifact });
+    log.debug("{f}: Preparing to download {f}", .{ request.cid, artifact });
     const upstream_path = try artifact.upstream_path(arena);
 
     const now = request.received_dt.with_offset(0).timestamp_ms();
@@ -49,7 +49,7 @@ fn download(request: *http.Request, artifact: Artifact, cache: *Caches, server_s
         .query = .{ .raw = try request.fmt("source={s}", .{ config.public_hostname }) },
     };
 
-    log.debug("Starting download for {f}", .{ uri });
+    log.debug("{f}: Starting download for {f}", .{ request.cid, uri });
 
     {
         var client: std.http.Client = .{
@@ -123,7 +123,7 @@ fn download(request: *http.Request, artifact: Artifact, cache: *Caches, server_s
             if (head_time_ptr.cmpxchgWeak(expected_head_time, new, .monotonic, .monotonic)) |new_expected| {
                 expected_head_time = new_expected;
             } else {
-                log.debug("Updated expected upstream request head time to {f}", .{ std.Io.Duration.fromMilliseconds(new) });
+                log.debug("{f}: Updated expected upstream request head time to {f}", .{ request.cid, std.Io.Duration.fromMilliseconds(new) });
                 break;
             }
         }

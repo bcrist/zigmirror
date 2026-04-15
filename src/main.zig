@@ -172,7 +172,7 @@ const Context = struct {
 const Injector = dizzy.Injector(struct {
     pub fn inject_download_authority(ctx: Context) !Download_Authority {
         try ctx.context.upstream_semaphore.wait(ctx.request.io);
-        log.debug("Download Authority acquired ({} available)", .{ @atomicLoad(usize, &ctx.context.upstream_semaphore.permits, .monotonic) });
+        locking_log.debug("Download Authority acquired ({} available)", .{ @atomicLoad(usize, &ctx.context.upstream_semaphore.permits, .monotonic) });
         return .{
             .io = ctx.request.io,
             .semaphore = &ctx.context.upstream_semaphore,
@@ -181,7 +181,7 @@ const Injector = dizzy.Injector(struct {
 
     pub fn inject_download_authority_cleanup(da: Download_Authority) void {
         da.semaphore.post(da.io);
-        log.debug("Download Authority returned ({} available)", .{ @atomicLoad(usize, &da.semaphore.permits, .monotonic) });
+        locking_log.debug("Download Authority returned ({} available)", .{ @atomicLoad(usize, &da.semaphore.permits, .monotonic) });
     }
 
     pub fn inject_config(ctx: Context) *const Config {
@@ -231,9 +231,11 @@ pub const std_options: std.Options = .{
     .log_scope_levels = &.{
         .{ .scope = .sx, .level = .warn },
         .{ .scope = .zkittle, .level = .info },
+        .{ .scope = .locking, .level = .info },
     },
 };
 
+const locking_log = std.log.scoped(.locking);
 const log = std.log.scoped(.zigmirror);
 
 pub const resources = @import("resources");
