@@ -11,6 +11,8 @@ This makes it a good option to run on systems with constrained memory or disk sp
 
 `zig build` will output a default `zigmirror.sx` configuration file to `zig-out/zigmirror.sx`.
 
+An HTML `/stats` endpoint is served which provides information about what is currently available in the cache, how frequently it is accessed, etc.
+
 ## HTTPS Termination
 Zig community mirrors are expected to serve over HTTPS, but good TLS support complicates server projects significantly, and often it's better/easier to just handle HTTPS termination through a load balancer or reverse proxy.  Therefore this project assumes that you'll use an external solution such as [TLSproxy](https://github.com/c2FmZQ/tlsproxy).
 
@@ -25,7 +27,8 @@ The `(cache (mem))` and `(cache (fs))` expressions in the config file include tw
 Average artifact size is somewhere around 25MB (most build artifacts are around 50MB and `.minisig` artifacts are tiny), so it's best to set `max_entries` to at least `max_bytes / (25 * 1024 * 1024)`.
 
 When an artifact is evicted from the memory cache, it is moved to the filesystem cache, unless the filesystem cache is full and everything it contains is more important than the item from the memory cache.
-Optionally, moving to the filesystem cache can also be skipped if the artifact wasn't referenced enough while in memory, using the `(cache ... (fs ... (min_requests n)))` expression in the config file.  If you set this higher than 1, you may want to set the memory cache size a little higher (I'd recommend at least 2GB / 100 entries).
+Additionally, popular artifacts may be moved from the memory cache to the FS cache before the memory cache is full.  The conditions for this are controlled with the `(cache ... (mem ... (periodic_eviction ...)))` config expression.
+Optionally, moving to the filesystem cache can be skipped if the artifact wasn't referenced enough while in memory, using the `(cache ... (fs ... (min_requests n)))` expression in the config file.  If you set this higher than 1, you may want to set the memory cache size a little higher (I'd recommend at least 2GB / 100 entries).
 
 When serving artifacts from the filesystem, `sendfile` is utilized, so the OS's internal filesystem cache is leveraged as much as possible.  Therefore, you shouldn't allocate a majority of your system memory towards the memory cache.  I recommend at least 1 GB, but not more than 25% of your physical memory.
 
