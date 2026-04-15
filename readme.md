@@ -29,10 +29,10 @@ Optionally, moving to the filesystem cache can also be skipped if the artifact w
 
 When serving artifacts from the filesystem, `sendfile` is utilized, so the OS's internal filesystem cache is leveraged as much as possible.  Therefore, you shouldn't allocate a majority of your system memory towards the memory cache.  I recommend at least 1 GB, but not more than 25% of your physical memory.
 
-`(max_concurrent_upstream_downloads n)` controls how many threads may try to download new artifacts from `ziglang.org` at the same time.  Each thread doing this temporarily stores the full artifact in memory before adding it to the memory cache, so setting this to a large number will increase process memory usage.  Note: If a client request the an artifact that's already being downloaded for another client, the subsequent client(s) will be blocked until the original download completes and the artifact enters the cache.
+`(max_concurrent_upstream_downloads n)` controls how many threads may try to download new artifacts from `ziglang.org` at the same time.  Each thread doing this temporarily stores the full artifact in memory before adding it to the memory cache, so setting this to a large number will increase process memory usage.  Note: If a client requests an artifact that's already being downloaded for another client, the subsequent client(s) will be blocked until the original download completes and the artifact enters the cache.
 
 ## Typical Installation
-```bash
+```sh
 # Build zigmirror:
 cd ~
 git clone https://codeberg.org/bcrist/zigmirror
