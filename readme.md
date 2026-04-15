@@ -3,6 +3,7 @@
 `zigmirror` is a simple, standalone [Zig Community Mirror](https://codeberg.org/ziglang/www.ziglang.org/src/branch/main/MIRRORS.md) cache server.  It utilizes two caches:
 * A small memory cache for "strange" requests
 * A larger filesystem cache for "typical" requests
+
 Both caches are configured to hold a maximum number of files and maximum total memory/disk usage.
 This makes it a good option to run on systems with constrained memory or disk space
 
