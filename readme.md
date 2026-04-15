@@ -10,7 +10,7 @@ This makes it a good option to run on systems with constrained memory or disk sp
 ## Usage
 `zigmirror` expects a single command line argument: the path to the `zigmirror.sx` configuration file.  If not specified as an absolute path, it will recursively search for the file, starting in the executable directory and moving through the parent chain until it is found, or the root directory is reached.
 
-`zig build` will output a default `zigmirror.sx` configuration file to `zig-out/zigmirror.sx`.
+`zig build` will output a default `zigmirror.sx` configuration file to `zig-out/etc/zigmirror.sx`.
 
 An HTML `/stats` endpoint is served which provides information about what is currently available in the cache, how frequently it is accessed, etc.
 
