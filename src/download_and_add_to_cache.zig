@@ -52,10 +52,17 @@ fn download(request: *http.Request, artifact: Artifact, cache: *Caches, server_s
     log.debug("{f}: Starting download for {f}", .{ request.cid, uri });
 
     {
+        const client_now: std.Io.Timestamp = .now(cache.mem.io, .real);
+
+        var ca_bundle: std.crypto.Certificate.Bundle = .empty;
+        errdefer ca_bundle.deinit(cache.mem.gpa);
+        try ca_bundle.rescan(cache.mem.gpa, cache.mem.io, client_now);
+
         var client: std.http.Client = .{
             .allocator = cache.mem.gpa, // probably could use arena?
-            .io = request.io,
-            .now = .now(request.io, .real),
+            .io = cache.mem.io,
+            .ca_bundle = ca_bundle,
+            .now = client_now,
         };
         defer client.deinit();
 

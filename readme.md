@@ -49,7 +49,7 @@ sudo useradd --system --shell /usr/sbin/nologin zigmirror
 sudo cp zig-out/bin/zigmirror /usr/local/bin/
 sudo chown zigmirror:zigmirror /usr/local/bin/zigmirror
 
-sudo cp zig-out/zigmirror.sx /usr/local/etc/
+sudo cp zig-out/etc/zigmirror.sx /usr/local/etc/
 sudo vi /usr/local/etc/zigmirror.sx # modify as desired
 sudo chown zigmirror:zigmirror /usr/local/etc/zigmirror.sx
 
