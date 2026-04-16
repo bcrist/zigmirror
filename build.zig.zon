@@ -19,16 +19,16 @@
             .hash = "fmt_helper-0.2.0-yH32_WFsAACpUq3X70lopCWqQEWP-qNbW8YFJ8BMNDS-",
         },
         .shittip = .{
-            .url = "git+https://codeberg.org/bcrist/shittip#317ce789fc039c27541fc5120a2c310e4f98192c",
-            .hash = "shittip-0.3.1-l5sQccPyAQA9uiVVQdst1JYg0SCtBPWJD_dBom8Fo1TF",
+            .url = "git+https://codeberg.org/bcrist/shittip#c39b6e2acfdb5ae517ec71534d4f1ae0819886a5",
+            .hash = "shittip-0.3.1-l5sQccPyAQA3zVWSASzdKsSp26WDeojan7diaof-VG9c",
         },
         .sx = .{
             .url = "git+https://codeberg.org/bcrist/zig-sx#2c93ff006c0d872ac836b357d1a1849cb3816fb7",
             .hash = "sx-1.2.1-0vgbanLYAAB7fetrpL29eq7qwrZrDMHgLdP4qqThJvJa",
         },
         .tempora = .{
-            .url = "git+https://codeberg.org/bcrist/tempora#72a7461dc6bf4379ee8ba1f4884a05d4e6853ee1",
-            .hash = "tempora-0.5.0-GTyeDczxCAD6l95Jekfb89VFec6SZBQXLEMMtrHmBa0g",
+            .url = "git+https://codeberg.org/bcrist/tempora#cdcb309d16e5a50c27fceb78fa44f7f1da8954cc",
+            .hash = "tempora-0.5.1-GTyeDZDxCADcA86baun7uGaMnPlMflksdxVPYPYX-g5G",
         },
         .zkittle = .{
             .url = "git+https://codeberg.org/bcrist/zkittle#6a1d5e2634e7b99303b304f6233fb3048d86a7ad",
