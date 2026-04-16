@@ -19,8 +19,8 @@
             .hash = "fmt_helper-0.2.0-yH32_WFsAACpUq3X70lopCWqQEWP-qNbW8YFJ8BMNDS-",
         },
         .shittip = .{
-            .url = "git+https://codeberg.org/bcrist/shittip#1787d529f75c5584723b28f139baceb150786bc8",
-            .hash = "shittip-0.3.1-l5sQccPyAQDY_cm4B9vS50Fk25sK-CQ--ST8Q7uCQhTy",
+            .url = "git+https://codeberg.org/bcrist/shittip#317ce789fc039c27541fc5120a2c310e4f98192c",
+            .hash = "shittip-0.3.1-l5sQccPyAQA9uiVVQdst1JYg0SCtBPWJD_dBom8Fo1TF",
         },
         .sx = .{
             .url = "git+https://codeberg.org/bcrist/zig-sx#2c93ff006c0d872ac836b357d1a1849cb3816fb7",
@@ -35,8 +35,8 @@
             .hash = "zkittle-0.1.2-Nt34TEhSAQBZvR3tkc_b9fjgBuPQj5WsWjYasLAkEIXk",
         },
         .dizzy = .{
-            .url = "git+https://codeberg.org/bcrist/dizzy#975b1a0de2d84044319d289b33e0efaeda401e89",
-            .hash = "dizzy-0.1.0-dA4Er8Q2AABhftSvYYNdY9FCkx41jcjAPFluJbxE0h4_",
+            .url = "git+https://codeberg.org/bcrist/dizzy#6b5c6c2d16d7938a5f0dc8ef7b677066c1818e48",
+            .hash = "dizzy-0.1.1-dA4Er-g2AACK2cTTKl66z7Uk-MomyfJ1-1ggmdWQfUsk",
         },
     },
 }
