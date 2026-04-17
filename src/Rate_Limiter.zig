@@ -104,7 +104,10 @@ const State = struct {
         const requests_to_refill = config.refill_per_minute * ms_til_now / std.time.ms_per_min;
         const new_requests_remaining = @min(self.requests_remaining + requests_to_refill, config.bucket_size);
         self.requests_remaining = new_requests_remaining;
-        self.last_generation_time = if (new_requests_remaining == config.bucket_size) now else @divTrunc(self.last_generation_time * std.time.ms_per_min, @as(i64, config.refill_per_minute));
+        self.last_generation_time = if (new_requests_remaining == config.bucket_size) now else t: {
+            const dt: i64 = @intCast(@divTrunc(requests_to_refill * std.time.ms_per_min, config.refill_per_minute));
+            break :t self.last_generation_time + dt;
+        };
         return new_requests_remaining;
     }
 };
