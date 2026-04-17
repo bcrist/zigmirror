@@ -1,7 +1,7 @@
 .{
     .name = .zigmirror,
     .fingerprint = 0xe8542ef7ee8a8b70,
-    .version = "1.0.3",
+    .version = "1.0.4",
     .minimum_zig_version = "0.16.0",
     .paths = .{
         "src",

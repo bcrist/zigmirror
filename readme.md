@@ -5,12 +5,12 @@
 * A larger filesystem cache for "typical" requests
 
 Both caches are configured to hold a maximum number of files and maximum total memory/disk usage.
-This makes it a good option to run on systems with constrained memory or disk space
+This makes it a good option to run on systems with constrained memory or disk space, while also allowing it to be scaled up on beefy machines.
 
 ## Usage
-`zigmirror` expects a single command line argument: the path to the `zigmirror.sx` configuration file.  If not specified as an absolute path, it will recursively search for the file, starting in the executable directory and moving through the parent chain until it is found, or the root directory is reached.
+`zigmirror` expects a single command line argument: the path to the `zigmirror.sx` configuration file.  If not specified as an absolute path, it will recursively search for the file, starting in the executable directory and moving through the parent chain until it is found, or the root directory is reached.  Running without any arguments (i.e. just `zigmirror`) behaves the same as running `zigmirror etc/zigmirror.sx`, invoking the recursive parent directory search.
 
-`zig build` will output a default `zigmirror.sx` configuration file to `zig-out/etc/zigmirror.sx`.
+`zig build` will output a default configuration file to `zig-out/etc/default.zigmirror.sx`.  Delete the `default.` prefix and modify it as necessary.
 
 An HTML `/stats` endpoint is served which provides information about what is currently available in the cache, how frequently it is accessed, etc.
 

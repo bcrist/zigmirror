@@ -75,7 +75,7 @@ fn load_config(arena: std.mem.Allocator, gpa: std.mem.Allocator, io: std.Io, arg
     defer args_iter.deinit();
 
     _ = args_iter.next(); // exe name
-    const config_path = args_iter.next() orelse "zigmirror.sx";
+    const config_path = args_iter.next() orelse "etc/zigmirror.sx";
 
     var parent_path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const parent_path_len = try std.process.executableDirPath(io, &parent_path_buf);
