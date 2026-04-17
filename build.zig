@@ -36,21 +36,23 @@ pub fn build(b: *std.Build) void {
     if (b.args) |args| run.addArgs(args);
     b.step("run", "run zigmirror").dependOn(&run.step);
 
-    const generate_default_config_exe = b.addExecutable(.{
-        .name = "generate_default_config",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/generate_default_config.zig"),
-            .optimize = optimize,
-            .target = target,
-            .imports = &.{
-                .{ .name = "fmt", .module = b.dependency("fmt_helper", .{}).module("fmt") },
-                .{ .name = "sx", .module = b.dependency("sx", .{}).module("sx") },
-            },
-        }),
-    });
-    const generate_default_config = b.addRunArtifact(generate_default_config_exe);
-    const default_config = generate_default_config.addOutputFileArg("zigmirror.sx");
-    b.getInstallStep().dependOn(&b.addInstallFileWithDir(default_config, .{ .custom = "etc" }, "zigmirror.sx").step);
+    if (b.option(bool, "generate-config", "Generate a default configuration file at zig-out/etc/zigmirror.sx") orelse true) {
+        const generate_default_config_exe = b.addExecutable(.{
+            .name = "generate_default_config",
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("src/generate_default_config.zig"),
+                .optimize = .Debug,
+                .target = b.graph.host,
+                .imports = &.{
+                    .{ .name = "fmt", .module = b.dependency("fmt_helper", .{}).module("fmt") },
+                    .{ .name = "sx", .module = b.dependency("sx", .{}).module("sx") },
+                },
+            }),
+        });
+        const generate_default_config = b.addRunArtifact(generate_default_config_exe);
+        const default_config = generate_default_config.addOutputFileArg("zigmirror.sx");
+        b.getInstallStep().dependOn(&b.addInstallFileWithDir(default_config, .{ .custom = "etc" }, "zigmirror.sx").step);
+    }
 }
 
 const shittip = @import("shittip");

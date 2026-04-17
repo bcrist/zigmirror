@@ -16,6 +16,6 @@ jobs:
         with:
           version: master
           mirror: 'https://zig.bcr.ist/'
-      - run: zig build -Dtarget=x86_64-linux
-      - run: zig build -Dtarget=aarch64-linux
-      - run: zig build -Dtarget=x86_64-windows
+      - run: zig build 
+      - run: zig build -Dtarget=aarch64-linux -Dgenerate-config=false
+      - run: zig build -Dtarget=x86_64-windows -Dgenerate-config=false
