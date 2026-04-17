@@ -27,7 +27,7 @@ default_upstream_timeout_seconds: u32 = 5,
 min_upstream_timeout_seconds: u32 = 2,
 recheck_not_found_after_seconds: usize = 60,
 // TODO index_json_refresh_interval_minutes: usize = 60,
-// TODO show_rate_limit_stats: bool = false,
+show_rate_limit_stats: bool = false,
 allow_shutdown: bool = false,
 
 pub fn load(reader: *std.Io.File.Reader, arena: std.mem.Allocator, temp: std.mem.Allocator) !Config {

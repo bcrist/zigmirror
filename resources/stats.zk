@@ -16,7 +16,25 @@
             <tr><th>Upstream archive timeout</th><td class="left">\\upstream_head_time_archive//</td></tr>
             <tr><th>Upstream minisig timeout</th><td class="left">\\upstream_head_time_minisig//</td></tr>
         </table>
-
+\\ show_rate_limit_stats?
+        <h2>Rate Limiting</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>IP</th>
+                    <th>Remaining</th>
+                    <th>Last Generation</th>
+                </tr>
+            </thead>
+\\ rate_limits:
+            <tr>
+                <td>\\ip//</td>
+                <td>\\requests_remaining//</td>
+                <td>\\last_generation_time//</td>
+            </tr>
+\\ ~
+        </table>
+\\ ~
         <h2>Memory Cache</h2>
         <table>
             <thead>

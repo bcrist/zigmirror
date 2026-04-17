@@ -1,8 +1,9 @@
-pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_Stats, cache: *Caches, arena: std.mem.Allocator) !void {
+pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_Stats, cache: *Caches, arena: std.mem.Allocator, rate_limiter: *Rate_Limiter) !void {
     const server_start_time = server_stats.start_time.with_offset(0);
     const now = tempora.now(request.io);
+    const now_ts = now.timestamp_ms();
 
-    const ms_since_start: f64 = @floatFromInt(now.timestamp_ms() - server_start_time.timestamp_ms());
+    const ms_since_start: f64 = @floatFromInt(now_ts - server_start_time.timestamp_ms());
     const hours_since_start = ms_since_start / std.time.ms_per_hour;
 
     const artifacts_served: f64 = @floatFromInt(server_stats.artifacts_served.load(.monotonic));
@@ -18,7 +19,7 @@ pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_
         .evictions_per_hour = round1(evictions_mem / hours_since_start),
         .entries = try arena.alloc(Cache_Entry, cache.mem.entries.len),
     };
-    try populate_cache_entries(cache.mem.io, arena, cache.mem.entries, cache_mem.entries, now.timestamp_ms());
+    try populate_cache_entries(cache.mem.io, arena, cache.mem.entries, cache_mem.entries, now_ts);
 
     const cache_fs: Cache_Stats = .{
         .active_entries = try cache.fs.active_entries(),
@@ -27,7 +28,32 @@ pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_
         .evictions_per_hour = round1(evictions_fs / hours_since_start),
         .entries = try arena.alloc(Cache_Entry, cache.fs.entries.len),
     };
-    try populate_cache_entries(cache.fs.io, arena, cache.fs.entries, cache_fs.entries, now.timestamp_ms());
+    try populate_cache_entries(cache.fs.io, arena, cache.fs.entries, cache_fs.entries, now_ts);
+
+    var rate_limits: []Rate_Limit_Entry = &.{};
+    
+    if (config.show_rate_limit_stats) {
+        if (rate_limiter.config) |rlconfig| {
+            try rate_limiter.mutex.lock(rate_limiter.io);
+            defer rate_limiter.mutex.unlock(rate_limiter.io);
+
+            var list: std.ArrayList(Rate_Limit_Entry) = try .initCapacity(arena, rate_limiter.clients.count());
+            defer list.deinit(arena);
+
+            var iter = rate_limiter.clients.iterator();
+            while (iter.next()) |entry| {
+                var state = entry.value_ptr.*;
+                _ = state.update(now_ts, rlconfig);
+                try list.append(arena, .{
+                    .ip = entry.key_ptr.*,
+                    .requests_remaining = state.requests_remaining,
+                    .last_generation_time = state.last_generation_time,
+                });
+            }
+
+            rate_limits = try list.toOwnedSlice(arena);
+        }
+    }
 
     try request.render("stats.zk", .{
         .hostname = config.public_hostname,
@@ -43,6 +69,8 @@ pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_
             .fs = cache_fs,
         },
         .zigmirror_version = zon.version,
+        .show_rate_limit_stats = config.show_rate_limit_stats,
+        .rate_limits = rate_limits,
     }, .{ .Context = Context });
 }
 
@@ -125,6 +153,12 @@ const Cache_Entry = struct {
     eviction_score: ?u64,
 };
 
+const Rate_Limit_Entry = struct {
+    ip: std.Io.net.IpAddress,
+    requests_remaining: u64,
+    last_generation_time: i64,
+};
+
 const Context = struct {
     pub const cache = struct {
         pub const mem = struct {
@@ -151,12 +185,18 @@ const Context = struct {
         };
         pub const fs = mem;
     };
+    pub const rate_limits = struct {
+        pub fn last_generation_time(ts: i64, w: *std.Io.Writer) std.Io.Writer.Error!void {
+            try w.print("{f}", .{ DTO.from_timestamp_ms(ts, null).fmt(dtf) });
+        }
+    };
 };
 
 const DTO = tempora.Date_Time.With_Offset;
 const dtf = DTO.sql_local;
 
 const zon = @import("zon");
+const Rate_Limiter = @import("Rate_Limiter.zig");
 const Config = @import("Config.zig");
 const Cache = @import("Cache.zig");
 const Caches = @import("Caches.zig");

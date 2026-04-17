@@ -82,6 +82,8 @@ fn load_config(arena: std.mem.Allocator, gpa: std.mem.Allocator, io: std.Io, arg
     var parent_path: []const u8 = parent_path_buf[0..parent_path_len];
 
     const config_file: std.Io.File = while (true) {
+        log.info("Searching for {s} in {s}", .{ config_path, parent_path });
+        
         const dir = try std.Io.Dir.cwd().openDir(io, parent_path, .{});
         defer dir.close(io);
 
