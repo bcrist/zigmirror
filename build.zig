@@ -18,6 +18,7 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("src/main.zig"),
             .optimize = optimize,
             .target = target,
+            .strip = false,
             .imports = &.{
                 .{ .name = "Temp_Allocator", .module = b.dependency("Temp_Allocator", .{}).module("Temp_Allocator") },
                 .{ .name = "fmt", .module = b.dependency("fmt_helper", .{}).module("fmt") },
