@@ -101,8 +101,8 @@ fn populate_cache_entries(io: std.Io, arena: std.mem.Allocator, state_entries: [
         const duration_total = state.requests.duration_total.load(.monotonic);
         const first_time = state.requests.first_time.load(.monotonic);
         const last_time = state.requests.last_time.load(.monotonic);
-        const first_to_last_ms: f64 = if (request_count > 0 and last_time > first_time) @floatFromInt(last_time - first_time) else 0;
-        const first_to_last_days = first_to_last_ms / std.time.ms_per_day;
+        const ms_since_first: f64 = if (request_count > 0) @floatFromInt(now - first_time) else 0;
+        const days_since_first = ms_since_first / std.time.ms_per_day;
 
         stats.* = .{
             .index = index,
@@ -114,7 +114,7 @@ fn populate_cache_entries(io: std.Io, arena: std.mem.Allocator, state_entries: [
             .first_request_time = if (request_count > 0) first_time else null,
             .last_request_time = if (request_count > 0) last_time else null,
             .request_count = if (artifact) |_| request_count else null,
-            .requests_per_day = if (first_to_last_days > 0) request_count / first_to_last_days else null,
+            .requests_per_day = if (days_since_first > 0) request_count / days_since_first else null,
             .request_duration_min = if (duration_count > 0) state.requests.duration_min.load(.monotonic) else null,
             .request_duration_max = if (duration_count > 0) state.requests.duration_max.load(.monotonic) else null,
             .request_duration_avg = if (duration_count > 0) @intCast(duration_total / duration_count) else null,
