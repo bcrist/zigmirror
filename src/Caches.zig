@@ -211,10 +211,32 @@ pub fn evict_from_fs_cache(fs_cache: *Cache, server_stats: *Server_Stats, artifa
     }
 }
 
+pub fn report_hit(request: *http.Request, server_stats: *Server_Stats, entry: *Cache.Entry) void {
+    const end = tempora.now(request.io).timestamp_ms();
+    const now = request.received_dt.with_offset(0).timestamp_ms();
+    const request_duration: u32 = @intCast(std.math.clamp(end - now, 0, std.math.maxInt(u32)));
+
+    if (request.get_header("x-forwarded-for")) |header| {
+        log.info("{f}: took {f} (XFF: {f})", .{
+            request.cid,
+            std.Io.Duration.fromMilliseconds(request_duration),
+            std.zig.fmtString(header.value),
+        });
+    } else {
+        log.info("{f}: took {f}", .{
+            request.cid,
+            std.Io.Duration.fromMilliseconds(request_duration),
+        });
+    }
+    entry.requests.hit(now, request_duration);
+    _ = server_stats.artifacts_served.fetchAdd(1, .monotonic);
+}
+
 const Caches = @This();
 
 const log = std.log.scoped(.zigmirror);
 
+const http = @import("http");
 const Config = @import("Config.zig");
 const Artifact = @import("Artifact.zig");
 const Server_Stats = @import("Server_Stats.zig");

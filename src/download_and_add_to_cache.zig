@@ -26,16 +26,7 @@ fn download(request: *http.Request, artifact: Artifact, cache: *Caches, server_s
         try request.set_response_header("content-type", mem_ref.ptr.artifact.?.extension.content_type());
         try request.respond(data);
 
-        const end = tempora.now(request.io).timestamp_ms();
-        const request_duration: u32 = @intCast(std.math.clamp(end - now, 0, std.math.maxInt(u32)));
-
-        log.info("{f}: took {f}", .{
-            request.cid,
-            std.Io.Duration.fromMilliseconds(request_duration),
-        });
-
-        mem_ref.ptr.requests.hit(now, request_duration);
-        _ = server_stats.artifacts_served.fetchAdd(1, .monotonic);
+        Caches.report_hit(request, server_stats, mem_ref.ptr);
         return;
     }
 
@@ -157,26 +148,18 @@ fn download(request: *http.Request, artifact: Artifact, cache: *Caches, server_s
         try request.end_response();
     }
 
-    const end = tempora.now(request.io).timestamp_ms();
-    const request_duration: u32 = @intCast(std.math.clamp(end - now, 0, std.math.maxInt(u32)));
-
     log.info("{f}: Upstream [200] {f}", .{
         request.cid,
         uri,
     });
-    log.info("{f}: took {f}", .{
-        request.cid,
-        std.Io.Duration.fromMilliseconds(request_duration),
-    });
+    _ = server_stats.upstream_artifacts_downloaded.fetchAdd(1, .monotonic);
 
     const data = try collector.toOwnedSlice();
     const bytes: u32 = @intCast(data.len);
     mem_ref.ptr.bytes = bytes;
     mem_ref.ptr.data = data;
     cache.mem.report_added_bytes(bytes);
-    mem_ref.ptr.requests.hit(now, request_duration);
-    _ = server_stats.artifacts_served.fetchAdd(1, .monotonic);
-    _ = server_stats.upstream_artifacts_downloaded.fetchAdd(1, .monotonic);
+    Caches.report_hit(request, server_stats, mem_ref.ptr);
 }
 
 const log = std.log.scoped(.zigmirror);
