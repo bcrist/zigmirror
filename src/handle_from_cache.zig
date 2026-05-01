@@ -10,16 +10,7 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
             try request.set_response_header("content-type", ref.ptr.artifact.?.extension.content_type());
             try request.respond(data);
 
-            const end = tempora.now(request.io).timestamp_ms();
-            const request_duration: u32 = @intCast(std.math.clamp(end - now, 0, std.math.maxInt(u32)));
-
-            log.info("{f}: took {f}", .{
-                request.cid,
-                std.Io.Duration.fromMilliseconds(request_duration),
-            });
-
-            ref.ptr.requests.hit(now, request_duration);
-            _ = server_stats.artifacts_served.fetchAdd(1, .monotonic);
+            Caches.report_hit(request, server_stats, ref.ptr);
             return;
         }
 
@@ -88,16 +79,7 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
                 else => |e| return e,
             };
 
-            const end = tempora.now(request.io).timestamp_ms();
-            const request_duration: u32 = @intCast(std.math.clamp(end - now, 0, std.math.maxInt(u32)));
-
-            log.info("{f}: took {f}", .{
-                request.cid,
-                std.Io.Duration.fromMilliseconds(request_duration),
-            });
-
-            ref.ptr.requests.hit(now, request_duration);
-            _ = server_stats.artifacts_served.fetchAdd(1, .monotonic);
+            Caches.report_hit(request, server_stats, ref.ptr);
             return;
         }
     }
