@@ -47,7 +47,7 @@ zig build -Doptimize=ReleaseSafe
 sudo useradd --system --shell /usr/sbin/nologin zigmirror
 
 sudo install -m 0750 -u zigmirror -g zigmirror -D zig-out/bin/zigmirror /usr/local/bin/zigmirror
-sudo install -m 0644 -u zigmirror -g zigmirror -D zig-out/etc/zigmirror.sx /usr/local/etc/zigmirror.sx
+sudo install -m 0644 -u zigmirror -g zigmirror -D zig-out/etc/default.zigmirror.sx /usr/local/etc/zigmirror.sx
 sudo vi /usr/local/etc/zigmirror.sx # modify as desired
 
 sudo install -m 0644 src/zigmirror.service /etc/systemd/system/zigmirror.service
