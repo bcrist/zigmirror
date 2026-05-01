@@ -114,7 +114,7 @@ fn populate_cache_entries(io: std.Io, arena: std.mem.Allocator, state_entries: [
             .first_request_time = if (request_count > 0) first_time else null,
             .last_request_time = if (request_count > 0) last_time else null,
             .request_count = if (artifact) |_| request_count else null,
-            .requests_per_day = if (days_since_first > 0) request_count / days_since_first else null,
+            .requests_per_day = if (days_since_first > 1.0 / 24.0) request_count / days_since_first else null,
             .request_duration_min = if (duration_count > 0) state.requests.duration_min.load(.monotonic) else null,
             .request_duration_max = if (duration_count > 0) state.requests.duration_max.load(.monotonic) else null,
             .request_duration_avg = if (duration_count > 0) @intCast(duration_total / duration_count) else null,
