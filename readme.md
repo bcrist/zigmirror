@@ -85,3 +85,11 @@ sudo systemctl daemon-reload
 sudo systemctl enable tlsproxy
 sudo systemctl start tlsproxy
 ```
+
+Updating after initial installation:
+```sh
+cd ~/zigmirror
+git pull
+sudo -u zigmirror zig build -Doptimize=ReleaseSafe -p /usr/local
+sudo systemctl restart zigmirror
+```

@@ -52,6 +52,32 @@ pub fn main(init: std.process.Init) !void {
     }
 
     // TODO periodic download index.json from ziglang.org
+
+    if (std.posix.Sigaction != void) {
+        signal_handler_io = loop.io;
+        try server.tasks.group.concurrent(loop.io, signal_handler_shutdown_task, .{
+            &loop,
+            &server.injector_context.cache,
+            &server.injector_context.server_stats,
+            config,
+        });
+        
+        const action: std.posix.Sigaction = .{
+            .handler = .{ .handler = &signal_handler },
+            .mask = std.posix.sigemptyset(),
+            .flags = 0,
+        };
+
+        std.posix.sigaction(.INT, &action, null);
+        std.posix.sigaction(.TERM, &action, null);
+    }
+}
+
+var signal_handler_io: std.Io = undefined;
+var graceful_shutdown_latch: std.Io.Semaphore = .{};
+
+fn signal_handler(_: std.posix.SIG) callconv(.c) void {
+    graceful_shutdown_latch.post(signal_handler_io);
 }
 
 fn rate_limit_cleanup_task(io: std.Io, period_seconds: i64, rate_limit: *Rate_Limiter) error{Canceled}!void {
@@ -69,6 +95,11 @@ fn mem_cache_cleanup_task(io: std.Io, cache: *Caches, server_stats: *Server_Stat
     }
 }
 
+fn signal_handler_shutdown_task(loop: *http.Loop, cache: *Caches, server_stats: *Server_Stats, config: Config) error{Canceled}!void {
+    try graceful_shutdown_latch.wait(loop.io);
+    defer loop.stop();
+    try cache.evict_all_mem(server_stats, &config);
+}
 
 fn load_config(arena: std.mem.Allocator, gpa: std.mem.Allocator, io: std.Io, args: std.process.Args) !Config {
     var args_iter = try args.iterateAllocator(gpa);

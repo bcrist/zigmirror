@@ -4,10 +4,12 @@ Description=zigmirror - Zig Community Mirror Cache Server
 After=network.target
 
 [Service]
-Type=simple
+Type=exec
 ExecStart=/usr/local/bin/zigmirror /usr/local/etc/zigmirror.sx
-Restart=on-failure
-RestartSec=5
+Restart=always
+RestartSec=1
+RestartSteps=7
+RestartMaxDelaySec=300
 User=zigmirror
 Group=zigmirror
 
