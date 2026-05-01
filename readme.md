@@ -83,8 +83,5 @@ Updating after initial installation:
 ```sh
 cd ~/zigmirror
 git pull
-zig build -Doptimize=ReleaseSafe
-sudo systemctl stop zigmirror
-sudo cp zig-out/bin/zigmirror /usr/local/bin/
-sudo systemctl start zigmirror
+sudo zig build upgrade -Doptimize=ReleaseSafe
 ```

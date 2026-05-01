@@ -54,6 +54,15 @@ pub fn build(b: *std.Build) void {
         const default_config = generate_default_config.addOutputFileArg("zigmirror.sx");
         b.getInstallStep().dependOn(&b.addInstallFileWithDir(default_config, .{ .custom = "etc" }, "default.zigmirror.sx").step);
     }
+
+    const upgrade_bin_path = b.option([]const u8, "upgrade-bin-path", "Path to copy zig-out/bin/zigmirror to when using the `upgrade` step (defaults to `/usr/local/bin/`)") orelse "/usr/local/bin/";
+    const systemd_stop = b.addSystemCommand(&.{ "systemctl", "stop", "zigmirror" });
+    systemd_stop.step.dependOn(&exe.step);
+    const upgrade = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = upgrade_bin_path } } });
+    upgrade.step.dependOn(&systemd_stop.step);
+    const systemd_start = b.addSystemCommand(&.{ "systemctl", "start", "zigmirror" });
+    systemd_start.step.dependOn(&upgrade.step);
+    b.step("upgrade", "Copies the new zigmirror executable to the system bin path (-Dupgrade-bin-path) and restarts the zigmirror systemd service").dependOn(&systemd_start.step);
 }
 
 const shittip = @import("shittip");
