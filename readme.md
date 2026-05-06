@@ -14,6 +14,8 @@ This makes it a good option to run on systems with constrained memory or disk sp
 
 An HTML `/stats` endpoint is served which provides information about what is currently available in the cache, how frequently it is accessed, etc.
 
+In addition to the zig compiler source, zig-bootstrap, and build artifacts that all community servers are required to cache, the zig compiler devkits found at `https://ziglang.org/download/deps/zig+llvm+lld+clang-<target>-<version>.<ext>` are also allowed to be cached, but support for this can be disabled in the configuration file.  These are the build tools used by the zig compiler CI runners, and can be useful for building an LLVM-enabled zig compiler locally, especially on Windows.
+
 ## HTTPS Termination
 Zig community mirrors are expected to serve over HTTPS, but good TLS support complicates server projects significantly, and often it's better/easier to just handle HTTPS termination through a load balancer or reverse proxy.  Therefore this project assumes that you'll use an external solution such as [TLSproxy](https://github.com/c2FmZQ/tlsproxy).
 
@@ -46,14 +48,11 @@ zig build -Doptimize=ReleaseSafe
 # Install zigmirror:
 sudo useradd --system --shell /usr/sbin/nologin zigmirror
 
-sudo cp zig-out/bin/zigmirror /usr/local/bin/
-sudo chown zigmirror:zigmirror /usr/local/bin/zigmirror
-
-sudo cp zig-out/etc/zigmirror.sx /usr/local/etc/
+sudo install -m 0750 -u zigmirror -g zigmirror -D zig-out/bin/zigmirror /usr/local/bin/zigmirror
+sudo install -m 0644 -u zigmirror -g zigmirror -D zig-out/etc/default.zigmirror.sx /usr/local/etc/zigmirror.sx
 sudo vi /usr/local/etc/zigmirror.sx # modify as desired
-sudo chown zigmirror:zigmirror /usr/local/etc/zigmirror.sx
 
-sudo cp src/zigmirror.service /etc/systemd/system/
+sudo install -m 0644 src/zigmirror.service /etc/systemd/system/zigmirror.service
 sudo vi /etc/systemd/system/zigmirror.service # modify as desired
 sudo systemctl daemon-reload
 sudo systemctl enable zigmirror
@@ -69,19 +68,22 @@ go build -o tlsproxy
 # Install TLSproxy:
 sudo useradd --system --shell /usr/sbin/nologin tlsproxy
 
-sudo cp tlsproxy /usr/local/bin/
-sudo chown tlsproxy:tlsproxy /usr/local/bin/tlsproxy
-
-sudo mkdir -p /usr/local/etc/tlsproxy
-sudo cp ../zigmirror/tlsproxy/config.yaml /usr/local/etc/tlsproxy/
+sudo install -m 0750 -u tlsproxy -g tlsproxy -D tlsproxy /usr/local/bin/tlsproxy
+sudo install -m 0644 -u tlsproxy -g tlsproxy -D ../zigmirror/tlsproxy/config.yaml /usr/local/etc/tlsproxy/config.yaml
 sudo vi /usr/local/etc/tlsproxy/config.yaml # modify as desired
-sudo chown tlsproxy:tlsproxy /usr/local/etc/tlsproxy/config.yaml
 
 sudo mkdir -p /usr/local/var/cache/tlsproxy
 
-sudo cp ../zigmirror/tlsproxy/tlsproxy.service /etc/systemd/system/
+sudo install -m 0644 ../zigmirror/tlsproxy/tlsproxy.service /etc/systemd/system/tlsproxy.service
 sudo vi /etc/systemd/system/tlsproxy.service # modify as desired
 sudo systemctl daemon-reload
 sudo systemctl enable tlsproxy
 sudo systemctl start tlsproxy
+```
+
+Updating after initial installation:
+```sh
+cd ~/zigmirror
+git pull
+sudo zig build upgrade -Doptimize=ReleaseSafe
 ```

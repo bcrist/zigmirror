@@ -1,3 +1,8 @@
+comptime {
+    // tests:
+    _ = @import("Artifact.zig");
+}
+
 pub fn main(init: std.process.Init) !void {
     const config = try load_config(init.arena.allocator(), init.gpa, init.io, init.minimal.args);
 
@@ -52,6 +57,32 @@ pub fn main(init: std.process.Init) !void {
     }
 
     // TODO periodic download index.json from ziglang.org
+
+    if (std.posix.Sigaction != void) {
+        signal_handler_io = loop.io;
+        try server.tasks.group.concurrent(loop.io, signal_handler_shutdown_task, .{
+            &loop,
+            &server.injector_context.cache,
+            &server.injector_context.server_stats,
+            config,
+        });
+        
+        const action: std.posix.Sigaction = .{
+            .handler = .{ .handler = &signal_handler },
+            .mask = std.posix.sigemptyset(),
+            .flags = 0,
+        };
+
+        std.posix.sigaction(.INT, &action, null);
+        std.posix.sigaction(.TERM, &action, null);
+    }
+}
+
+var signal_handler_io: std.Io = undefined;
+var graceful_shutdown_latch: std.Io.Semaphore = .{};
+
+fn signal_handler(_: std.posix.SIG) callconv(.c) void {
+    graceful_shutdown_latch.post(signal_handler_io);
 }
 
 fn rate_limit_cleanup_task(io: std.Io, period_seconds: i64, rate_limit: *Rate_Limiter) error{Canceled}!void {
@@ -69,6 +100,11 @@ fn mem_cache_cleanup_task(io: std.Io, cache: *Caches, server_stats: *Server_Stat
     }
 }
 
+fn signal_handler_shutdown_task(loop: *http.Loop, cache: *Caches, server_stats: *Server_Stats, config: Config) error{Canceled}!void {
+    try graceful_shutdown_latch.wait(loop.io);
+    defer loop.stop();
+    try cache.evict_all_mem(server_stats, &config);
+}
 
 fn load_config(arena: std.mem.Allocator, gpa: std.mem.Allocator, io: std.Io, args: std.process.Args) !Config {
     var args_iter = try args.iterateAllocator(gpa);
@@ -127,11 +163,13 @@ const Context = struct {
 
             var iter = dir.iterateAssumeFirstIteration();
             while (try iter.next(io)) |entry| {
-                if (Artifact.parse(entry.name)) |artifact| {
+                if (Artifact.maybe_parse(entry.name)) |artifact| {
                     const stat = dir.statFile(io, entry.name, .{}) catch |err| switch (err) {
                         error.IsDir => continue,
                         else => |e| return e,
                     };
+
+                    if (artifact.artifact_type == .devkit and !config.allow_devkit_artifacts) continue;
 
                     const fs_ref: Cache.Entry.Ref = for (0..100) |_| {
                         if (try fs_cache.get_or_add(artifact)) |ref| break ref;
@@ -199,7 +237,9 @@ const Injector = dizzy.Injector(struct {
     }
 
     pub fn inject_artifact(ctx: Context) ?Artifact {
-        return Artifact.parse(ctx.request.target.path_remaining);
+        const artifact = Artifact.maybe_parse(ctx.request.target.path_remaining) orelse return null;
+        if (artifact.artifact_type == .devkit and !ctx.context.config.allow_devkit_artifacts) return null;
+        return artifact;
     }
 
     pub fn inject_server_stats(ctx: Context) *Server_Stats {

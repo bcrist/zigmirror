@@ -12,6 +12,17 @@ pub fn build(b: *std.Build) void {
         .install = if (optimize == .Debug) "resources" else null,
     });
 
+    const imports: []const std.Build.Module.Import = &.{
+        .{ .name = "Temp_Allocator", .module = b.dependency("Temp_Allocator", .{}).module("Temp_Allocator") },
+        .{ .name = "fmt", .module = b.dependency("fmt_helper", .{}).module("fmt") },
+        .{ .name = "sx", .module = b.dependency("sx", .{}).module("sx") },
+        .{ .name = "tempora", .module = b.dependency("tempora", .{}).module("tempora") },
+        .{ .name = "dizzy", .module = b.dependency("dizzy", .{}).module("dizzy") },
+        .{ .name = "http", .module = b.dependency("shittip", .{}).module("http") },
+        .{ .name = "resources", .module = resources },
+        .{ .name = "zon", .module = zon },
+    };
+
     const exe = b.addExecutable(.{
         .name = "zigmirror",
         .root_module = b.createModule(.{
@@ -19,16 +30,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
             .target = target,
             .strip = false,
-            .imports = &.{
-                .{ .name = "Temp_Allocator", .module = b.dependency("Temp_Allocator", .{}).module("Temp_Allocator") },
-                .{ .name = "fmt", .module = b.dependency("fmt_helper", .{}).module("fmt") },
-                .{ .name = "sx", .module = b.dependency("sx", .{}).module("sx") },
-                .{ .name = "tempora", .module = b.dependency("tempora", .{}).module("tempora") },
-                .{ .name = "dizzy", .module = b.dependency("dizzy", .{}).module("dizzy") },
-                .{ .name = "http", .module = b.dependency("shittip", .{}).module("http") },
-                .{ .name = "resources", .module = resources },
-                .{ .name = "zon", .module = zon },
-            },
+            .imports = imports,
         }),
     });
     b.installArtifact(exe);
@@ -36,6 +38,16 @@ pub fn build(b: *std.Build) void {
     const run = b.addRunArtifact(exe);
     if (b.args) |args| run.addArgs(args);
     b.step("run", "run zigmirror").dependOn(&run.step);
+
+    const tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .optimize = optimize,
+            .target = b.graph.host,
+            .imports = imports,
+        }),
+    });
+    b.step("test", "run tests").dependOn(&b.addRunArtifact(tests).step);
 
     if (b.option(bool, "generate-config", "Generate a default configuration file at zig-out/etc/default.zigmirror.sx") orelse true) {
         const generate_default_config_exe = b.addExecutable(.{
@@ -54,6 +66,15 @@ pub fn build(b: *std.Build) void {
         const default_config = generate_default_config.addOutputFileArg("zigmirror.sx");
         b.getInstallStep().dependOn(&b.addInstallFileWithDir(default_config, .{ .custom = "etc" }, "default.zigmirror.sx").step);
     }
+
+    const upgrade_bin_path = b.option([]const u8, "upgrade-bin-path", "Path to copy zig-out/bin/zigmirror to when using the `upgrade` step (defaults to `/usr/local/bin/`)") orelse "/usr/local/bin/";
+    const systemd_stop = b.addSystemCommand(&.{ "systemctl", "stop", "zigmirror" });
+    systemd_stop.step.dependOn(&exe.step);
+    const upgrade = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = upgrade_bin_path } } });
+    upgrade.step.dependOn(&systemd_stop.step);
+    const systemd_start = b.addSystemCommand(&.{ "systemctl", "start", "zigmirror" });
+    systemd_start.step.dependOn(&upgrade.step);
+    b.step("upgrade", "Copies the new zigmirror executable to the system bin path (-Dupgrade-bin-path) and restarts the zigmirror systemd service").dependOn(&systemd_start.step);
 }
 
 const shittip = @import("shittip");
