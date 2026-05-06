@@ -14,6 +14,8 @@ This makes it a good option to run on systems with constrained memory or disk sp
 
 An HTML `/stats` endpoint is served which provides information about what is currently available in the cache, how frequently it is accessed, etc.
 
+In addition to the zig compiler source, zig-bootstrap, and build artifacts that all community servers are required to cache, the zig compiler devkits found at `https://ziglang.org/download/deps/zig+llvm+lld+clang-<target>-<version>.<ext>` are also allowed to be cached, but support for this can be disabled in the configuration file.  These are the build tools used by the zig compiler CI runners, and can be useful for building an LLVM-enabled zig compiler locally, especially on Windows.
+
 ## HTTPS Termination
 Zig community mirrors are expected to serve over HTTPS, but good TLS support complicates server projects significantly, and often it's better/easier to just handle HTTPS termination through a load balancer or reverse proxy.  Therefore this project assumes that you'll use an external solution such as [TLSproxy](https://github.com/c2FmZQ/tlsproxy).
 

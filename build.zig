@@ -12,6 +12,17 @@ pub fn build(b: *std.Build) void {
         .install = if (optimize == .Debug) "resources" else null,
     });
 
+    const imports: []const std.Build.Module.Import = &.{
+        .{ .name = "Temp_Allocator", .module = b.dependency("Temp_Allocator", .{}).module("Temp_Allocator") },
+        .{ .name = "fmt", .module = b.dependency("fmt_helper", .{}).module("fmt") },
+        .{ .name = "sx", .module = b.dependency("sx", .{}).module("sx") },
+        .{ .name = "tempora", .module = b.dependency("tempora", .{}).module("tempora") },
+        .{ .name = "dizzy", .module = b.dependency("dizzy", .{}).module("dizzy") },
+        .{ .name = "http", .module = b.dependency("shittip", .{}).module("http") },
+        .{ .name = "resources", .module = resources },
+        .{ .name = "zon", .module = zon },
+    };
+
     const exe = b.addExecutable(.{
         .name = "zigmirror",
         .root_module = b.createModule(.{
@@ -19,16 +30,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
             .target = target,
             .strip = false,
-            .imports = &.{
-                .{ .name = "Temp_Allocator", .module = b.dependency("Temp_Allocator", .{}).module("Temp_Allocator") },
-                .{ .name = "fmt", .module = b.dependency("fmt_helper", .{}).module("fmt") },
-                .{ .name = "sx", .module = b.dependency("sx", .{}).module("sx") },
-                .{ .name = "tempora", .module = b.dependency("tempora", .{}).module("tempora") },
-                .{ .name = "dizzy", .module = b.dependency("dizzy", .{}).module("dizzy") },
-                .{ .name = "http", .module = b.dependency("shittip", .{}).module("http") },
-                .{ .name = "resources", .module = resources },
-                .{ .name = "zon", .module = zon },
-            },
+            .imports = imports,
         }),
     });
     b.installArtifact(exe);
@@ -36,6 +38,16 @@ pub fn build(b: *std.Build) void {
     const run = b.addRunArtifact(exe);
     if (b.args) |args| run.addArgs(args);
     b.step("run", "run zigmirror").dependOn(&run.step);
+
+    const tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .optimize = optimize,
+            .target = b.graph.host,
+            .imports = imports,
+        }),
+    });
+    b.step("test", "run tests").dependOn(&b.addRunArtifact(tests).step);
 
     if (b.option(bool, "generate-config", "Generate a default configuration file at zig-out/etc/default.zigmirror.sx") orelse true) {
         const generate_default_config_exe = b.addExecutable(.{

@@ -1,3 +1,8 @@
+comptime {
+    // tests:
+    _ = @import("Artifact.zig");
+}
+
 pub fn main(init: std.process.Init) !void {
     const config = try load_config(init.arena.allocator(), init.gpa, init.io, init.minimal.args);
 
@@ -158,11 +163,13 @@ const Context = struct {
 
             var iter = dir.iterateAssumeFirstIteration();
             while (try iter.next(io)) |entry| {
-                if (Artifact.parse(entry.name)) |artifact| {
+                if (Artifact.maybe_parse(entry.name)) |artifact| {
                     const stat = dir.statFile(io, entry.name, .{}) catch |err| switch (err) {
                         error.IsDir => continue,
                         else => |e| return e,
                     };
+
+                    if (artifact.artifact_type == .devkit and !config.allow_devkit_artifacts) continue;
 
                     const fs_ref: Cache.Entry.Ref = for (0..100) |_| {
                         if (try fs_cache.get_or_add(artifact)) |ref| break ref;
@@ -230,7 +237,9 @@ const Injector = dizzy.Injector(struct {
     }
 
     pub fn inject_artifact(ctx: Context) ?Artifact {
-        return Artifact.parse(ctx.request.target.path_remaining);
+        const artifact = Artifact.maybe_parse(ctx.request.target.path_remaining) orelse return null;
+        if (artifact.artifact_type == .devkit and !ctx.context.config.allow_devkit_artifacts) return null;
+        return artifact;
     }
 
     pub fn inject_server_stats(ctx: Context) *Server_Stats {

@@ -7,9 +7,13 @@ pre: ?Buffer_Slice,
 build: ?Buffer_Slice,
 buf: [64]u8,
 
-pub fn parse(filename: []const u8) ?Artifact {
-    if (!std.mem.startsWith(u8, filename, "zig-")) return null;
-    if (std.mem.findAny(u8, filename, "/\\")) |_| return null;
+pub fn maybe_parse(filename: []const u8) ?Artifact {
+    return parse(filename) catch null;
+}
+
+pub fn parse(filename: []const u8) !Artifact {
+    if (!std.mem.startsWith(u8, filename, "zig")) return error.InvalidArtifactFilename;
+    if (std.mem.findAny(u8, filename, "/\\")) |_| return error.InvalidArtifactFilename;
 
     const is_minisig = std.mem.endsWith(u8, filename, ".minisig");
     const filename_no_minisig = if (is_minisig) filename[0 .. filename.len - ".minisig".len] else filename;
@@ -18,19 +22,19 @@ pub fn parse(filename: []const u8) ?Artifact {
         extension = if (is_minisig) .txz_minisig else .txz;
     } else if (std.mem.endsWith(u8, filename_no_minisig, ".zip")) {
         extension = if (is_minisig) .zip_minisig else .zip;
-    } else return null;
+    } else return error.InvalidArtifactFilename;
 
     const filename_no_ext = filename[0 .. filename.len - extension.slice().len];
 
-    var last_dash = std.mem.findScalarLast(u8, filename_no_ext, '-') orelse return null;
+    var last_dash = std.mem.findScalarLast(u8, filename_no_ext, '-') orelse return error.InvalidArtifactFilename;
     var version_str = filename_no_ext[last_dash + 1 ..];
 
     if (std.mem.startsWith(u8, version_str, "dev.")) {
-        last_dash = std.mem.findScalarLast(u8, filename_no_ext[0..last_dash], '-') orelse return null;
+        last_dash = std.mem.findScalarLast(u8, filename_no_ext[0..last_dash], '-') orelse return error.InvalidArtifactFilename;
         version_str = filename_no_ext[last_dash + 1 ..];
     }
 
-    const sv = std.SemanticVersion.parse(version_str) catch return null;
+    const sv = std.SemanticVersion.parse(version_str) catch return error.InvalidArtifactFilename;
 
     var buf: [64]u8 = @splat(0);
     var w = std.Io.Writer.fixed(&buf);
@@ -39,7 +43,7 @@ pub fn parse(filename: []const u8) ?Artifact {
         const begin = w.end;
         w.writeAll(str) catch {
             log.err("Filename too long: \"{f}\"", .{ std.zig.fmtString(filename) });
-            return null;
+            return error.InvalidArtifactFilename;
         };
         break :s .init_begin_end(begin, w.end);
     } else null;
@@ -48,21 +52,38 @@ pub fn parse(filename: []const u8) ?Artifact {
         const begin = w.end;
         w.writeAll(str) catch {
             log.err("Filename too long: \"{f}\"", .{ std.zig.fmtString(filename) });
-            return null;
+            return error.InvalidArtifactFilename;
         };
         break :s .init_begin_end(begin, w.end);
     } else null;
 
-    const arch_os_str: ?[]const u8 = if (last_dash > "zig".len) filename["zig-".len .. last_dash] else null;
-    const artifact_type: Type = if (arch_os_str) |str| t: {
-        if (std.mem.eql(u8, str, "bootstrap")) break :t .bootstrap;
+    var artifact_type: Type = .source;
+
+    // errdefer std.log.err("last_dash = {}", .{ last_dash });
+
+    if (last_dash > devkit_prefix.len and std.mem.startsWith(u8, filename, devkit_prefix)) {
+        const arch_os_str = filename[devkit_prefix.len .. last_dash];
         const begin = w.end;
-        w.writeAll(str) catch {
+        w.writeAll(arch_os_str) catch {
             log.err("Filename too long: \"{f}\"", .{ std.zig.fmtString(filename) });
-            return null;
+            return error.InvalidArtifactFilename;
         };
-        break :t .{ .build = .init_begin_end(begin, w.end) };
-    } else .source;
+        artifact_type = .{ .devkit = .init_begin_end(begin, w.end) };
+    } else if (last_dash > build_prefix.len and std.mem.startsWith(u8, filename, build_prefix)) {
+        const arch_os_str = filename[build_prefix.len .. last_dash];
+        if (std.mem.eql(u8, arch_os_str, "bootstrap")) {
+            artifact_type = .bootstrap;
+        } else {
+            const begin = w.end;
+            w.writeAll(arch_os_str) catch {
+                log.err("Filename too long: \"{f}\"", .{ std.zig.fmtString(filename) });
+                return error.InvalidArtifactFilename;
+            };
+            artifact_type = .{ .build = .init_begin_end(begin, w.end) };
+        }
+    } else if (last_dash > source_prefix.len) {
+        return error.InvalidArtifactFilename;
+    }
 
     return .{
         .artifact_type = artifact_type,
@@ -88,15 +109,56 @@ pub fn version(self: *const Artifact) std.SemanticVersion {
 
 pub fn format(self: *const Artifact, writer: *std.Io.Writer) std.Io.Writer.Error!void {
     switch (self.artifact_type) {
-        .source => try writer.writeAll("zig-"),
-        .bootstrap => try writer.writeAll("zig-bootstrap-"),
-        .build => |s| try writer.print("zig-{s}-", .{ s.slice(&self.buf) }),
+        .source => try writer.writeAll(source_prefix),
+        .bootstrap => try writer.writeAll(bootstrap_prefix),
+        .build => |s| try writer.print(build_prefix ++ "{s}-", .{ s.slice(&self.buf) }),
+        .devkit => |s| try writer.print(devkit_prefix ++ "{s}-", .{ s.slice(&self.buf) }),
     }
     try writer.print("{f}{f}", .{ self.version(), self.extension });
 }
 
+test "parse/format round trip" {
+    try test_parse_format("zig-0.15.2.tar.xz");
+    try test_parse_format("zig-0.15.2.tar.xz.minisig");
+    try test_parse_format("zig-0.16.0-dev.3153+d6f43caad.tar.xz");
+    try test_parse_format("zig-aarch64-freebsd-0.16.0-dev.3144+ac6fb0b59.tar.xz");
+    try test_parse_format("zig-aarch64-linux-0.16.0-dev.3144+ac6fb0b59.tar.xz");
+    try test_parse_format("zig-arm-linux-0.16.0-dev.3144+ac6fb0b59.tar.xz");
+    try test_parse_format("zig-arm-netbsd-0.16.0-dev.3144+ac6fb0b59.tar.xz");
+    try test_parse_format("zig-arm-netbsd-0.16.0-dev.3144+ac6fb0b59.tar.xz.minisig");
+    try test_parse_format("zig-bootstrap-0.15.2.tar.xz.minisig");
+    try test_parse_format("zig-bootstrap-0.16.0-dev.3153+d6f43caad.tar.xz.minisig");
+    try test_parse_format("zig-win64-0.2.0.zip");
+    try test_parse_format("zig-x86_64-linux-0.15.2.tar.xz");
+    try test_parse_format("zig-x86_64-linux-0.15.2.tar.xz.minisig");
+    try test_parse_format("zig-x86_64-windows-0.16.0-dev.3153+d6f43caad.zip");
+    try test_parse_format("zig-x86_64-windows-0.16.0-dev.3153+d6f43caad.zip.minisig");
+    try test_parse_format("zig-0.16.0.tar.xz");
+    try test_parse_format("zig-bootstrap-0.1.0-dev.asdfasdf.tar.xz");
+    try test_parse_format("zig-0.16.0.zip.minisig");
+    try test_parse_format("zig-x86_64-linux-0.14.1.tar.xz");
+    try test_parse_format("zig-asdf-0.17.0-dev.203+073889523.tar.xz");
+    try test_parse_format("zig-asdf-asdf-0.17.0-dev.203+073889523.tar.xz");
+    try test_parse_format("zig-asdf-asdf-asdt-0.17.0-dev.203+073889523.tar.xz");
+    try test_parse_format("zig+llvm+lld+clang-$TARGET-0.17.0-dev.203+073889523.zip");
+    try std.testing.expectError(error.InvalidArtifactFilename, test_parse_format(""));
+    try std.testing.expectError(error.InvalidArtifactFilename, test_parse_format("zig+llvm+lld+clang-/-0.17.0-dev.203+073889523.tar.xz"));
+}
+
+fn test_parse_format(input: []const u8) !void {
+    const artifact = try parse(input);
+    const output = try std.fmt.allocPrint(std.testing.allocator, "{f}", .{ artifact });
+    defer std.testing.allocator.free(output);
+    try std.testing.expectEqualStrings(input, output);
+}
+
+
 pub fn upstream_path(self: *const Artifact, allocator: std.mem.Allocator) ![]const u8 {
-    if (self.pre == null) {
+    if (self.artifact_type == .devkit) {
+        return try std.fmt.allocPrint(allocator, "/deps/{f}", .{
+            self.*,
+        });
+    } else if (self.pre == null) {
         return try std.fmt.allocPrint(allocator, "/download/{f}/{f}", .{
             self.version(),
             self.*,
@@ -109,7 +171,11 @@ pub fn upstream_path(self: *const Artifact, allocator: std.mem.Allocator) ![]con
 }
 
 pub fn upstream_url(self: *const Artifact, allocator: std.mem.Allocator) ![]const u8 {
-    if (self.pre == null) {
+    if (self.artifact_type == .devkit) {
+        return try std.fmt.allocPrint(allocator, "https://ziglang.org/deps/{f}", .{
+            self.*,
+        });
+    } else if (self.pre == null) {
         return try std.fmt.allocPrint(allocator, "https://ziglang.org/download/{f}/{f}", .{
             self.version(),
             self.*,
@@ -125,6 +191,7 @@ pub const Type = union (enum) {
     source,
     bootstrap,
     build: Buffer_Slice,
+    devkit: Buffer_Slice,
 
     pub fn fmt(self: Type, buf: []const u8) Formatter {
         return .{
@@ -197,6 +264,11 @@ const Buffer_Slice = struct {
         return buf[self.offset..][0..self.len];
     }
 };
+
+const source_prefix = "zig-";
+const build_prefix = "zig-";
+const bootstrap_prefix = "zig-bootstrap-";
+const devkit_prefix = "zig+llvm+lld+clang-";
 
 const Artifact = @This();
 
