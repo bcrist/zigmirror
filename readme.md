@@ -48,8 +48,8 @@ zig build -Doptimize=ReleaseSafe
 # Install zigmirror:
 sudo useradd --system --shell /usr/sbin/nologin zigmirror
 
-sudo install -m 0750 -u zigmirror -g zigmirror -D zig-out/bin/zigmirror /usr/local/bin/zigmirror
-sudo install -m 0644 -u zigmirror -g zigmirror -D zig-out/etc/default.zigmirror.sx /usr/local/etc/zigmirror.sx
+sudo install -m 0750 -o zigmirror -g zigmirror -D zig-out/bin/zigmirror /usr/local/bin/zigmirror
+sudo install -m 0644 -o zigmirror -g zigmirror -D zig-out/etc/default.zigmirror.sx /usr/local/etc/zigmirror.sx
 sudo vi /usr/local/etc/zigmirror.sx # modify as desired
 
 sudo install -m 0644 src/zigmirror.service /etc/systemd/system/zigmirror.service
@@ -68,8 +68,8 @@ go build -o tlsproxy
 # Install TLSproxy:
 sudo useradd --system --shell /usr/sbin/nologin tlsproxy
 
-sudo install -m 0750 -u tlsproxy -g tlsproxy -D tlsproxy /usr/local/bin/tlsproxy
-sudo install -m 0644 -u tlsproxy -g tlsproxy -D ../zigmirror/tlsproxy/config.yaml /usr/local/etc/tlsproxy/config.yaml
+sudo install -m 0750 -o tlsproxy -g tlsproxy -D tlsproxy /usr/local/bin/tlsproxy
+sudo install -m 0644 -o tlsproxy -g tlsproxy -D ../zigmirror/tlsproxy/config.yaml /usr/local/etc/tlsproxy/config.yaml
 sudo vi /usr/local/etc/tlsproxy/config.yaml # modify as desired
 
 sudo mkdir -p /usr/local/var/cache/tlsproxy

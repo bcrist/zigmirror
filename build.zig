@@ -68,14 +68,27 @@ pub fn build(b: *std.Build) void {
     }
 
     const upgrade_bin_path = b.option([]const u8, "upgrade-bin-path", "Path to copy zig-out/bin/zigmirror to when using the `upgrade` step (defaults to `/usr/local/bin/`)") orelse "/usr/local/bin/";
+    const upgrade_step = if (std.Io.Dir.path.isAbsolute(upgrade_bin_path)) step: {
+        const upgrade = b.addSystemCommand(&.{
+            "install", "-CD",
+            "-m",      "0750",
+            "-o",      "zigmirror",
+            "-g",      "zigmirror",
+        });
+        upgrade.addFileInput(exe.getEmittedBin());
+        upgrade.addArg(upgrade_bin_path);
+        break :step &upgrade.step;
+    } else &b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = upgrade_bin_path } } }).step;
+
     const systemd_stop = b.addSystemCommand(&.{ "systemctl", "stop", "zigmirror" });
     systemd_stop.has_side_effects = true;
-    systemd_stop.step.dependOn(&exe.step);
-    const upgrade = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = upgrade_bin_path } } });
-    upgrade.step.dependOn(&systemd_stop.step);
+
     const systemd_start = b.addSystemCommand(&.{ "systemctl", "start", "zigmirror" });
     systemd_start.has_side_effects = true;
-    systemd_start.step.dependOn(&upgrade.step);
+
+    systemd_stop.step.dependOn(&exe.step);
+    upgrade_step.dependOn(&systemd_stop.step);
+    systemd_start.step.dependOn(upgrade_step);
     b.step("upgrade", "Copies the new zigmirror executable to the system bin path (-Dupgrade-bin-path) and restarts the zigmirror systemd service").dependOn(&systemd_start.step);
 }
 
