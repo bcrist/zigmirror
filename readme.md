@@ -85,5 +85,5 @@ Updating after initial installation:
 ```sh
 cd ~/zigmirror
 git pull
-sudo zig build upgrade -Doptimize=ReleaseSafe
+sudo zig build upgrade -Doptimize=ReleaseSafe -Dupgrade-bin-user=zigmirror
 ```

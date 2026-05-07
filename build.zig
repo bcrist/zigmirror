@@ -72,7 +72,7 @@ pub fn build(b: *std.Build) void {
     if (b.option([]const u8, "upgrade-bin-user", "User/group name to assign to executable from -Dupgrade-bin-path when installing")) |user| {
         upgrade.addArgs(&.{ "-o", user, "-g", user });
     }
-    upgrade.addFileInput(exe.getEmittedBin());
+    upgrade.addFileArg(exe.getEmittedBin());
     upgrade.addArg(upgrade_bin_path);
 
     const systemd_stop = b.addSystemCommand(&.{ "systemctl", "stop", "zigmirror" });
