@@ -124,7 +124,7 @@ fn populate_cache_entries(io: std.Io, arena: std.mem.Allocator, state_entries: [
             .requests_per_day = if (days_since_first > 1.0 / 24.0) request_count / days_since_first else null,
             .request_duration_min = if (duration_count > 0) state.requests.duration_min.load(.monotonic) else null,
             .request_duration_max = if (duration_count > 0) state.requests.duration_max.load(.monotonic) else null,
-            .request_duration_avg = if (duration_count > 0) @intCast(duration_total / duration_count) else null,
+            .request_duration_avg = if (duration_count > 0) std.math.cast(i64, duration_total / duration_count) else null,
             .eviction_score = eviction_score,
         };
     }
