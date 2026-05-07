@@ -68,12 +68,10 @@ pub fn build(b: *std.Build) void {
     }
 
     const upgrade_bin_path = b.option([]const u8, "upgrade-bin-path", "Path to copy zig-out/bin/zigmirror to when using the `upgrade` step (defaults to `/usr/local/bin/zigmirror`)") orelse "/usr/local/bin/zigmirror";
-    const upgrade = b.addSystemCommand(&.{
-        "install", "-CD",
-        "-m",      "0750",
-        "-o",      "zigmirror",
-        "-g",      "zigmirror",
-    });
+    const upgrade = b.addSystemCommand(&.{ "install", "-CD", "-m", "0750" });
+    if (b.option([]const u8, "upgrade-bin-user", "User/group name to assign to executable from -Dupgrade-bin-path when installing")) |user| {
+        upgrade.addArgs(&.{ "-o", user, "-g", user });
+    }
     upgrade.addFileInput(exe.getEmittedBin());
     upgrade.addArg(upgrade_bin_path);
 
