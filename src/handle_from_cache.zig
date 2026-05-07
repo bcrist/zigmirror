@@ -3,7 +3,7 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
 
     const now = request.received_dt.with_offset(0).timestamp_ms();
 
-    if (try cache.mem.get(artifact)) |ref| {
+    if (try cache.mem.get(artifact, .shared)) |ref| {
         defer ref.unlock();
 
         if (ref.ptr.data) |data| {
@@ -23,7 +23,7 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
         return;
     }
 
-    if (try cache.fs.get(artifact)) |ref| {
+    if (try cache.fs.get(artifact, .shared)) |ref| {
         defer ref.unlock();
 
         if (ref.ptr.bytes) |bytes| {

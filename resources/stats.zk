@@ -56,17 +56,17 @@
 \\ cache.mem.entries:
             <tr>
                 <td>\\index//</td>
-                <td>\\artifact_type//</td>
-                <td><a href="/\\filename//">\\version//</a></td>
-                <td>\\extension//</td>
-                <td>\\bytes//</td>
+                <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\artifact_type//</td>
+                <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//><a href="/\\filename//">\\version//</a></td>
+                <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\extension//</td>
+                <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\bytes//</td>
                 <td>\\request_count requests_per_day//</td>
                 <td>\\first_request_time//</td>
                 <td>\\last_request_time//</td>
                 <td>\\request_duration_min//</td>
                 <td>\\request_duration_max//</td>
                 <td>\\request_duration_avg//</td>
-                <td>\\eviction_score//</td>
+                <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\eviction_score//</td>
             </tr>
 \\ ~
         </table>
@@ -92,17 +92,17 @@
 \\ cache.fs.entries:
             <tr>
                 <td>\\index//</td>
-                <td>\\artifact_type//</td>
-                <td><a href="/\\filename//">\\version//</a></td>
-                <td>\\extension//</td>
-                <td>\\bytes//</td>
+                <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\artifact_type//</td>
+                <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//><a href="/\\filename//">\\version//</a></td>
+                <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\extension//</td>
+                <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\bytes//</td>
                 <td>\\request_count requests_per_day//</td>
                 <td>\\first_request_time//</td>
                 <td>\\last_request_time//</td>
                 <td>\\request_duration_min//</td>
                 <td>\\request_duration_max//</td>
                 <td>\\request_duration_avg//</td>
-                <td>\\eviction_score//</td>
+                <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\eviction_score//</td>
             </tr>
 \\ ~
         </table>

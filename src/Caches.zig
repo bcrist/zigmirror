@@ -1,10 +1,15 @@
+// Allowed locking order for deadlock safety:
+//  1. at most one Entry from mem cache
+//  2. at most one Entry from fs cache
+//  3. mem.lookup_lock or fs.lookup_lock (not both simultaneously)
+
 mem: Cache,
 fs: Cache,
 
 pub fn evict_all_mem(cache: *Caches, server_stats: *Server_Stats, config: *const Config) !void {
     for (cache.mem.entries) |*entry| {
-        const ref: Cache.Entry.Ref = .init_shared(cache.mem.io, entry);
-        try ref.lock();
+        const ref: Cache.Entry.Ref = .init(cache.mem.io, entry, .shared);
+        _ = ref.try_lock() or continue;
 
         if (entry.artifact) |artifact| {
             cache.evict_from_mem_cache(server_stats, config, ref) catch |err| {
@@ -19,8 +24,8 @@ pub fn evict_all_mem(cache: *Caches, server_stats: *Server_Stats, config: *const
 pub fn periodic_cleanup(cache: *Caches, server_stats: *Server_Stats, config: *const Config) error{Canceled}!void {
     const peconfig = config.cache.mem.periodic_eviction.?;
     for (cache.mem.entries) |*entry| {
-        const ref: Cache.Entry.Ref = .init_shared(cache.mem.io, entry);
-        try ref.lock();
+        const ref: Cache.Entry.Ref = .init(cache.mem.io, entry, .shared);
+        _ = ref.try_lock() or continue;
 
         if (entry.artifact == null or entry.requests.count.load(.monotonic) < peconfig.min_requests) {
             ref.unlock();
@@ -36,10 +41,8 @@ pub fn periodic_cleanup(cache: *Caches, server_stats: *Server_Stats, config: *co
             continue;
         }
 
-        const artifact = entry.artifact.?;
-
         cache.evict_from_mem_cache(server_stats, config, ref) catch |err| {
-            log.err("Error attempting to evict {f} from mem cache: {t}", .{ artifact, err });
+            log.err("Error attempting to evict {f} from mem cache: {t}", .{ entry.artifact.?, err });
         };
     }
 }

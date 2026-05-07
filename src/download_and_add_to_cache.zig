@@ -13,7 +13,10 @@ fn download(request: *http.Request, artifact: Artifact, cache: *Caches, server_s
     const mem_ref: Cache.Entry.Ref = for (0..100) |_| {
         if (try cache.mem.get_or_add(artifact)) |ref| break ref;
         try cache.maybe_evict_from_mem_cache(server_stats, config);
-    } else return error.ServiceUnavailable;
+    } else {
+        log.warn("Failed to add {f} to mem cache: could not find free slot", .{ artifact });
+        return error.ServiceUnavailable;
+    };
     defer mem_ref.unlock();
     errdefer {
         mem_ref.ptr.artifact = null;
