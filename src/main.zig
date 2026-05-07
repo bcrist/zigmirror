@@ -4,6 +4,8 @@ comptime {
 }
 
 pub fn main(init: std.process.Init) !void {
+    log.info("Zigmirror {s} starting up...", .{ zon.version });
+
     const config = try load_config(init.arena.allocator(), init.gpa, init.io, init.minimal.args);
 
     var threaded_io: std.Io.Threaded = .init(init.gpa, .{
@@ -293,4 +295,5 @@ const Temp_Allocator = @import("Temp_Allocator");
 const tempora = @import("tempora");
 const dizzy = @import("dizzy");
 const http = @import("http");
+const zon = @import("zon");
 const std = @import("std");
