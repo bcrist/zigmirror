@@ -63,3 +63,7 @@ th:has(+td) {
 td.left {
     text-align: left;
 }
+
+.warn {
+    color: #d66;
+}

@@ -5,7 +5,7 @@ minor: u16,
 patch: u16,
 pre: ?Buffer_Slice,
 build: ?Buffer_Slice,
-buf: [64]u8,
+buf: [buffer_len]u8,
 
 pub fn maybe_parse(filename: []const u8) ?Artifact {
     return parse(filename) catch null;
@@ -243,8 +243,8 @@ pub const Extension = enum {
 };
 
 const Buffer_Slice = struct {
-    offset: u8,
-    len: u8,
+    offset: Buffer_Offset,
+    len: Buffer_Length,
 
     pub fn init(offset: usize, len: usize) Buffer_Slice {
         return .{
@@ -261,9 +261,15 @@ const Buffer_Slice = struct {
     }
 
     pub fn slice(self: Buffer_Slice, buf: []const u8) []const u8 {
-        return buf[self.offset..][0..self.len];
+        const begin = @min(buffer_len - 1, self.offset);
+        const end = @min(buffer_len, self.offset + self.len);
+        return buf[begin..end];
     }
 };
+
+const buffer_len = 64;
+const Buffer_Length = std.math.IntFittingRange(0, buffer_len);
+const Buffer_Offset = std.math.IntFittingRange(0, buffer_len - 1);
 
 const source_prefix = "zig-";
 const build_prefix = "zig-";

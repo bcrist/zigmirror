@@ -21,15 +21,21 @@ cache: struct {
         min_requests: u32 = 1,
     } = .{},
 } = .{},
-allow_devkit_artifacts: bool = true,
+request_timeout_seconds: u32 = 60 * 10,
 request_rate_limit: ?Rate_Limiter.Config = .{},
-max_concurrent_upstream_downloads: usize = 4,
-default_upstream_timeout_seconds: u32 = 5,
-min_upstream_timeout_seconds: u32 = 2,
-recheck_not_found_after_seconds: usize = 60,
-// TODO index_json_refresh_interval_minutes: usize = 60,
+upstream: struct {
+    max_connections: u32 = 4,
+    default_connect_timeout_seconds: u32 = 5,
+    min_connect_timeout_seconds: u32 = 2,
+    initial_transfer_timeout_seconds: u32 = 5,
+    dead_transfer_timeout_seconds: u32 = 1,
+    max_transfer_time_seconds: u32 = 60 * 5,
+    recheck_not_found_after_seconds: u32 = 60,
+} = .{},
 show_rate_limit_stats: bool = false,
+allow_devkit_artifacts: bool = true,
 allow_shutdown: bool = false,
+// TODO index_json_refresh_interval_minutes: usize = 60,
 
 pub fn load(reader: *std.Io.File.Reader, arena: std.mem.Allocator, temp: std.mem.Allocator) !Config {
     var sx_reader = sx.reader(temp, &reader.interface);

@@ -35,7 +35,7 @@ Optionally, moving to the filesystem cache can be skipped if the artifact wasn't
 
 When serving artifacts from the filesystem, `sendfile` is utilized, so the OS's internal filesystem cache is leveraged as much as possible.  Therefore, you shouldn't allocate a majority of your system memory towards the memory cache.  I recommend at least 1 GB, but not more than 25% of your physical memory.
 
-`(max_concurrent_upstream_downloads n)` controls how many threads may try to download new artifacts from `ziglang.org` at the same time.  Each thread doing this temporarily stores the full artifact in memory before adding it to the memory cache, so setting this to a large number will increase process memory usage.  Note: If a client requests an artifact that's already being downloaded for another client, the subsequent client(s) will be blocked until the original download completes and the artifact enters the cache.
+`(upstream (max_connections n))` controls how many threads may try to download new artifacts from `ziglang.org` at the same time.  Each thread doing this temporarily stores the full artifact in memory before adding it to the memory cache, so setting this to a large number will increase process memory usage.  Note: If a client requests an artifact that's already being downloaded for another client, the subsequent client(s) will be blocked until the original download completes and the artifact enters the cache.
 
 ## Typical Installation
 ```sh
@@ -48,8 +48,8 @@ zig build -Doptimize=ReleaseSafe
 # Install zigmirror:
 sudo useradd --system --shell /usr/sbin/nologin zigmirror
 
-sudo install -m 0750 -u zigmirror -g zigmirror -D zig-out/bin/zigmirror /usr/local/bin/zigmirror
-sudo install -m 0644 -u zigmirror -g zigmirror -D zig-out/etc/default.zigmirror.sx /usr/local/etc/zigmirror.sx
+sudo install -m 0750 -o zigmirror -g zigmirror -D zig-out/bin/zigmirror /usr/local/bin/zigmirror
+sudo install -m 0644 -o zigmirror -g zigmirror -D zig-out/etc/default.zigmirror.sx /usr/local/etc/zigmirror.sx
 sudo vi /usr/local/etc/zigmirror.sx # modify as desired
 
 sudo install -m 0644 src/zigmirror.service /etc/systemd/system/zigmirror.service
@@ -68,8 +68,8 @@ go build -o tlsproxy
 # Install TLSproxy:
 sudo useradd --system --shell /usr/sbin/nologin tlsproxy
 
-sudo install -m 0750 -u tlsproxy -g tlsproxy -D tlsproxy /usr/local/bin/tlsproxy
-sudo install -m 0644 -u tlsproxy -g tlsproxy -D ../zigmirror/tlsproxy/config.yaml /usr/local/etc/tlsproxy/config.yaml
+sudo install -m 0750 -o tlsproxy -g tlsproxy -D tlsproxy /usr/local/bin/tlsproxy
+sudo install -m 0644 -o tlsproxy -g tlsproxy -D ../zigmirror/tlsproxy/config.yaml /usr/local/etc/tlsproxy/config.yaml
 sudo vi /usr/local/etc/tlsproxy/config.yaml # modify as desired
 
 sudo mkdir -p /usr/local/var/cache/tlsproxy
@@ -85,5 +85,5 @@ Updating after initial installation:
 ```sh
 cd ~/zigmirror
 git pull
-sudo zig build upgrade -Doptimize=ReleaseSafe
+sudo zig build upgrade -Doptimize=ReleaseSafe -Dupgrade-bin-user=zigmirror
 ```

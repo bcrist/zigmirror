@@ -82,9 +82,10 @@ fn populate_cache_entries(io: std.Io, arena: std.mem.Allocator, state_entries: [
         var filename: []const u8 = "";
         var bytes: ?usize = null;
         var eviction_score: ?u64 = null;
+        var locked = false;
         {
-            try state.lock_shared(io);
-            defer state.unlock_shared(io);
+            locked = state.try_lock_shared(io);
+            defer if (locked) state.unlock_shared(io);
 
             if (state.artifact) |a| {
                 artifact = a;
@@ -93,7 +94,12 @@ fn populate_cache_entries(io: std.Io, arena: std.mem.Allocator, state_entries: [
                 artifact_type = try std.fmt.allocPrint(arena, "{f}", .{ a.artifact_type.fmt(&a.buf) });
                 eviction_score = state.order_score(now);
             }
-            if (state.data) |data| bytes = data.len else if (state.bytes) |b| bytes = b;
+
+            if (state.data) |data| {
+                bytes = data.len;
+            } else if (state.bytes) |b| {
+                bytes = b;
+            }
         }
 
         const request_count = state.requests.count.load(.monotonic);
@@ -106,6 +112,7 @@ fn populate_cache_entries(io: std.Io, arena: std.mem.Allocator, state_entries: [
 
         stats.* = .{
             .index = index,
+            .locked = locked,
             .filename = filename,
             .version = version,
             .artifact_type = artifact_type,
@@ -117,7 +124,7 @@ fn populate_cache_entries(io: std.Io, arena: std.mem.Allocator, state_entries: [
             .requests_per_day = if (days_since_first > 1.0 / 24.0) request_count / days_since_first else null,
             .request_duration_min = if (duration_count > 0) state.requests.duration_min.load(.monotonic) else null,
             .request_duration_max = if (duration_count > 0) state.requests.duration_max.load(.monotonic) else null,
-            .request_duration_avg = if (duration_count > 0) @intCast(duration_total / duration_count) else null,
+            .request_duration_avg = if (duration_count > 0) std.math.cast(i64, duration_total / duration_count) else null,
             .eviction_score = eviction_score,
         };
     }
@@ -138,6 +145,7 @@ const Cache_Stats = struct {
 
 const Cache_Entry = struct {
     index: usize,
+    locked: bool,
     filename: []const u8,
     version: []const u8,
     artifact_type: []const u8,

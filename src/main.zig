@@ -4,6 +4,8 @@ comptime {
 }
 
 pub fn main(init: std.process.Init) !void {
+    log.info("Zigmirror {s} starting up...", .{ zon.version });
+
     const config = try load_config(init.arena.allocator(), init.gpa, init.io, init.minimal.args);
 
     var threaded_io: std.Io.Threaded = .init(init.gpa, .{
@@ -34,6 +36,7 @@ pub fn main(init: std.process.Init) !void {
         try server.lookup_and_start(host_and_port.host, host_and_port.port, .{ .start_options = .{
             .temp_allocator_pool_size = 100,
             .temp_allocator_reservation_size = 1024 * 1024,
+            .request_timeout = .fromSeconds(config.request_timeout_seconds),
         }});
     }
 
@@ -158,7 +161,7 @@ const Context = struct {
             var dir = try std.Io.Dir.cwd().createDirPathOpen(io, config.cache.fs.path, .{ .open_options = .{ .iterate = true } });
             defer dir.close(io);
 
-            var server_stats: Server_Stats = .init(io, config.default_upstream_timeout_seconds * std.time.ms_per_s / 2);
+            var server_stats: Server_Stats = .init(io, config.upstream.default_connect_timeout_seconds * std.time.ms_per_s / 2);
             const startup_time = server_stats.start_time.with_offset(0).timestamp_ms();
 
             var iter = dir.iterateAssumeFirstIteration();
@@ -197,7 +200,7 @@ const Context = struct {
                 },
                 .rate_limiter = .init(io, gpa, config.request_rate_limit),
                 .server_stats = server_stats,
-                .upstream_semaphore = .{ .permits = config.max_concurrent_upstream_downloads },
+                .upstream_semaphore = .{ .permits = config.upstream.max_connections },
             };
         }
 
@@ -293,4 +296,5 @@ const Temp_Allocator = @import("Temp_Allocator");
 const tempora = @import("tempora");
 const dizzy = @import("dizzy");
 const http = @import("http");
+const zon = @import("zon");
 const std = @import("std");
