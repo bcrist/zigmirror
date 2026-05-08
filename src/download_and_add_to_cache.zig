@@ -44,7 +44,7 @@ fn download(request: *http.Request, artifact: Artifact, cache: *Caches, server_s
     };
 
     log.debug("{f}: Starting download for {f}", .{ request.cid, uri });
-    const client_now: std.Io.Timestamp = .now(cache.mem.io, .real);
+    const client_now: std.Io.Timestamp = .now(cache.mem.io, .awake);
 
     var ca_bundle: std.crypto.Certificate.Bundle = .empty;
     {
@@ -72,7 +72,7 @@ fn download(request: *http.Request, artifact: Artifact, cache: *Caches, server_s
         .protocol = .tls,
         .timeout = .{ .duration = .{
             .raw = std.Io.Duration.fromMilliseconds(expected_head_time * 2),
-            .clock = .real,
+            .clock = .awake,
         }},
     }) catch |err| {
         log.err("{f}: Upstream [fail] {s} while connecting for {f}", .{
