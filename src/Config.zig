@@ -21,6 +21,7 @@ cache: struct {
         min_requests: u32 = 1,
     } = .{},
 } = .{},
+request_timeout_seconds: u32 = 60 * 10,
 request_rate_limit: ?Rate_Limiter.Config = .{},
 upstream: struct {
     max_connections: u32 = 4,
