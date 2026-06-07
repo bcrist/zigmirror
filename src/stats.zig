@@ -1,6 +1,6 @@
 pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_Stats, cache: *Caches, arena: std.mem.Allocator, rate_limiter: *Rate_Limiter) !void {
     const server_start_time = server_stats.start_time.with_offset(0);
-    const now = tempora.now(request.io);
+    const now = tempora.now_utc(request.io);
     const now_ts = now.timestamp_ms();
 
     const ms_since_start: f64 = @floatFromInt(now_ts - server_start_time.timestamp_ms());

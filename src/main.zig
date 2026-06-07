@@ -91,7 +91,7 @@ fn signal_handler(_: std.posix.SIG) callconv(.c) void {
 fn rate_limit_cleanup_task(io: std.Io, period_seconds: i64, rate_limit: *Rate_Limiter) error{Canceled}!void {
     while (true) {
         try io.sleep(.fromSeconds(period_seconds), .real);
-        try rate_limit.cleanup(tempora.now(io).timestamp_ms());
+        try rate_limit.cleanup(tempora.now_utc(io).timestamp_ms());
 
     }
 }

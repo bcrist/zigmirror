@@ -163,7 +163,7 @@ fn reset_index(self: *Cache, index: usize, entry: *Entry) void {
 
 // Call Entry.Ref.unlock when finished
 pub fn get_worst(self: *Cache) !?Entry.Ref {
-    const now = tempora.now(self.io).timestamp_ms();
+    const now = tempora.now_utc(self.io).timestamp_ms();
 
     var maybe_worst_index: ?usize = null;
     var worst_entry: Entry = undefined;

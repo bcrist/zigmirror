@@ -32,7 +32,7 @@ pub fn periodic_cleanup(cache: *Caches, server_stats: *Server_Stats, config: *co
             continue;
         }
 
-        const now = tempora.now(cache.mem.io).timestamp_ms();
+        const now = tempora.now_utc(cache.mem.io).timestamp_ms();
 
         const age = now - entry.requests.first_time.load(.monotonic);
         const inactive = now - entry.requests.last_time.load(.monotonic);
@@ -99,7 +99,7 @@ fn evict_from_mem_cache(cache: *Caches, server_stats: *Server_Stats, config: *co
                 if (try cache.fs.get_worst()) |fs_ref| {
                     defer fs_ref.unlock();
 
-                    const now = tempora.now(cache.mem.io).timestamp_ms();
+                    const now = tempora.now_utc(cache.mem.io).timestamp_ms();
 
                     if (mem_ref.ptr.order(fs_ref.ptr, now) != .lt) {
                         // worst item in fs cache is better than the item we're evicting from mem cache, so don't add it to the fs cache
@@ -215,7 +215,7 @@ pub fn evict_from_fs_cache(fs_cache: *Cache, server_stats: *Server_Stats, artifa
 }
 
 pub fn report_hit(request: *http.Request, server_stats: *Server_Stats, entry: *Cache.Entry) void {
-    const end = tempora.now(request.io).timestamp_ms();
+    const end = tempora.now_utc(request.io).timestamp_ms();
     const now = request.received_dt.with_offset(0).timestamp_ms();
     const request_duration: u32 = @intCast(std.math.clamp(end - now, 0, std.math.maxInt(u32)));
 

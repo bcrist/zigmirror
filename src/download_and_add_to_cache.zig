@@ -268,7 +268,7 @@ fn transfer(request: *http.Request, upstream_req: *std.http.Client.Request, requ
         return .{ .receive_failed = error.HttpContentEncodingUnsupported };
     }
 
-    const head_received = tempora.now(request.io).timestamp_ms();
+    const head_received = tempora.now_utc(request.io).timestamp_ms();
     const head_time: u32 = @intCast(std.math.clamp(head_received - request_started, 0, std.math.maxInt(u32)));
 
     try request.set_response_header("content-type", content_type);
@@ -301,7 +301,7 @@ fn transfer_watchdog(io: std.Io, cid: http.Connection_Id, request_started: i64, 
     try io.sleep(.fromSeconds(timeout_seconds), .awake);
     var last_seen_bytes: usize = 0;
     while (true) {
-        const now = tempora.now(io).timestamp_ms();
+        const now = tempora.now_utc(io).timestamp_ms();
         if (now - request_started > config.upstream.max_transfer_time_seconds * std.time.ms_per_s) return;
 
         const bytes_now = bytes.load(.monotonic);

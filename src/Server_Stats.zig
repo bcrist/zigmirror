@@ -8,7 +8,7 @@ expected_upstream_head_time_ms_minisig: std.atomic.Value(u32),
 
 pub fn init(io: std.Io, default_upstream_head_time_ms: u32) Server_Stats {
     return .{
-        .start_time = tempora.now(io).dt,
+        .start_time = tempora.now_utc(io).dt,
         .artifacts_served = .init(0),
         .upstream_artifacts_downloaded = .init(0),
         .cache_evictions_mem = .init(0),
