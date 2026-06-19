@@ -81,6 +81,7 @@ fn populate_cache_entries(io: std.Io, arena: std.mem.Allocator, state_entries: [
         var artifact_type: []const u8 = "";
         var filename: []const u8 = "";
         var bytes: ?usize = null;
+        var hash: []const u8 = "";
         var eviction_score: ?u64 = null;
         var locked = false;
         {
@@ -100,6 +101,10 @@ fn populate_cache_entries(io: std.Io, arena: std.mem.Allocator, state_entries: [
             } else if (state.bytes) |b| {
                 bytes = b;
             }
+
+            if (state.hash) |digest| {
+                hash = try std.fmt.allocPrint(arena, "{x}", .{ digest });
+            }
         }
 
         const request_count = state.requests.count.load(.monotonic);
@@ -118,6 +123,7 @@ fn populate_cache_entries(io: std.Io, arena: std.mem.Allocator, state_entries: [
             .artifact_type = artifact_type,
             .extension = if (artifact) |a| a.extension else null,
             .bytes = bytes,
+            .hash = hash,
             .first_request_time = if (request_count > 0) first_time else null,
             .last_request_time = if (request_count > 0) last_time else null,
             .request_count = if (artifact) |_| request_count else null,
@@ -151,6 +157,7 @@ const Cache_Entry = struct {
     artifact_type: []const u8,
     extension: ?Artifact.Extension,
     bytes: ?usize,
+    hash: []const u8,
     request_count: ?usize,
     requests_per_day: ?f64,
     first_request_time: ?i64,

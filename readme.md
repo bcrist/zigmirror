@@ -87,3 +87,20 @@ cd ~/zigmirror
 git pull
 sudo zig build upgrade -Doptimize=ReleaseSafe -Dupgrade-bin-user=zigmirror
 ```
+
+# TODO
+* Parse build.zig.zon version in build.zig instead of adding build.zig.zon as a module
+* If-Modified-Since, If-None-Match caching w/ 304 response
+* Save fs cache metadata to file on graceful shutdown
+* Load fs cache metadata from file on startup
+* rename Download_Authority -> Upstream_Token
+* add Downstream_Token and allow configuration of max concurrent downstream downloads
+* configuration to send 503 if unable to claim an Upstream_Token
+* configuration to send 503 if unable to claim a Downstream_Token
+* Track number of in-progress client transfers and upstream transfers currently in progress
+* Track overall downstream/upstream transfer rate estimate
+* content range request support
+* static "/" route with info
+* index.json route
+* optional libsystemd startup integration
+* Reduce arena usage in stats.zk rendering (implement lazy zkittle value accessor instead of intermediate []Cache_Entry list)

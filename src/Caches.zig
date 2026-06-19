@@ -168,6 +168,7 @@ fn add_artifact_to_fs_cache(cache: *Caches, server_stats: *Server_Stats, mem_ref
     };
 
     fs_ref.ptr.bytes = @intCast(data.len);
+    fs_ref.ptr.hash = mem_ref.ptr.hash;
     fs_ref.ptr.requests.first_time.store(mem_ref.ptr.requests.first_time.load(.monotonic), .monotonic);
     fs_ref.ptr.requests.last_time.store(mem_ref.ptr.requests.last_time.load(.monotonic), .monotonic);
     fs_ref.ptr.requests.count.store(mem_ref.ptr.requests.count.load(.monotonic), .monotonic);

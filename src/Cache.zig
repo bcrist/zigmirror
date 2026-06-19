@@ -85,6 +85,7 @@ pub fn get_or_add(self: *Cache, artifact: Artifact) !?Entry.Ref {
             gop.value_ptr.* = locked_index;
             self.entries[locked_index].artifact = artifact;
             self.entries[locked_index].bytes = null;
+            self.entries[locked_index].hash = null;
             self.entries[locked_index].data = null;
             self.entries[locked_index].requests = .init;
             return .init(self.io, &self.entries[locked_index], .exclusive);
@@ -155,6 +156,7 @@ fn reset_index(self: *Cache, index: usize, entry: *Entry) void {
         entry.bytes = null;
     }
 
+    entry.hash = null;
     entry.artifact = null;
     entry.requests = .init;
 
@@ -195,6 +197,7 @@ pub const Entry = struct {
     rl: std.Io.RwLock,
     artifact: ?Artifact,
     bytes: ?u32,
+    hash: ?[std.crypto.hash.sha2.Sha256.digest_length]u8,
     data: ?[]const u8,
     requests: struct {
         first_time: std.atomic.Value(i64),
@@ -248,6 +251,7 @@ pub const Entry = struct {
         .rl = .init,
         .artifact = null,
         .bytes = null,
+        .hash = null,
         .data = null,
         .requests = .init,
     };
@@ -257,6 +261,7 @@ pub const Entry = struct {
             .rl = .init,
             .artifact = self.artifact,
             .bytes = self.bytes,
+            .hash = self.hash,
             .data = self.data,
             .requests = self.requests.clone(),
         };
@@ -309,8 +314,9 @@ pub const Entry = struct {
         const time_in_cache: u64 = if (now > first) std.math.cast(u64, now -% first) orelse 0 else 0;
         const time_since_last: u64 = if (now > last) std.math.cast(u64, now -% last) orelse 0 else 0;
         const dev_penalty: u64 = if (self.artifact != null and self.artifact.?.pre != null) 60_000 else 1000;
+        const not_found_penalty: u64 = if (self.bytes == null and self.data == null) 1_000_000 else 0;
 
-        const numer = time_in_cache + time_since_last + dev_penalty;
+        const numer = time_in_cache + time_since_last + dev_penalty + not_found_penalty;
         const denom = if (requests > 1) requests + 10 else 1;
 
         return numer / denom;

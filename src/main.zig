@@ -174,6 +174,31 @@ const Context = struct {
 
                     if (artifact.artifact_type == .devkit and !config.allow_devkit_artifacts) continue;
 
+                    var file = try dir.openFile(io, entry.name, .{});
+                    defer file.close(io);
+
+                    var hash_buf: [16384]u8 = undefined;
+                    var reader = file.reader(io, &hash_buf);
+                    var hasher: std.crypto.hash.sha2.Sha256 = .init(.{});
+
+                    while (!reader.atEnd()) {
+                        reader.interface.fillMore() catch |err| switch (err) {
+                            error.EndOfStream => break,
+                            error.ReadFailed => {
+                                log.err("Failed to calculate SHA256 for artifact {f}: {t}", .{ artifact, reader.err orelse error.ReadFailed });
+                                continue;
+                            },
+                        };
+                        const buffered = reader.interface.buffered();
+                        hasher.update(buffered);
+                        reader.interface.toss(buffered.len);
+                    }
+
+                    if (hasher.total_len != stat.size) {
+                        log.err("Failed to calculate SHA256 for artifact {f}: expected {} bytes but found {}", .{ artifact, stat.size, hasher.total_len });
+                        continue;
+                    }
+
                     const fs_ref: Cache.Entry.Ref = for (0..100) |_| {
                         if (try fs_cache.get_or_add(artifact)) |ref| break ref;
                         try Caches.maybe_evict_from_fs_cache(&fs_cache, &server_stats, config.cache.fs.path);
@@ -184,6 +209,7 @@ const Context = struct {
 
                     const bytes: u32 = @intCast(stat.size);
                     fs_ref.ptr.bytes = bytes;
+                    fs_ref.ptr.hash = hasher.finalResult();
                     fs_ref.ptr.requests.first_time.store(startup_time, .monotonic);
                     fs_ref.ptr.requests.last_time.store(startup_time, .monotonic);
                     fs_ref.ptr.requests.count.store(1, .monotonic);

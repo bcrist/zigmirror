@@ -212,7 +212,10 @@ fn download(request: *http.Request, artifact: Artifact, cache: *Caches, server_s
                 
                 const data = try collector.toOwnedSlice();
                 const num_bytes: u32 = @intCast(data.len);
+                var hash: [std.crypto.hash.sha2.Sha256.digest_length]u8 = undefined;
+                std.crypto.hash.sha2.Sha256.hash(data, &hash, .{});
                 mem_ref.ptr.bytes = num_bytes;
+                mem_ref.ptr.hash = hash;
                 mem_ref.ptr.data = data;
                 cache.mem.report_added_bytes(num_bytes);
                 Caches.report_hit(request, server_stats, mem_ref.ptr);
