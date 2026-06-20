@@ -119,12 +119,7 @@ pub fn report_added_bytes(self: *Cache, bytes: u32) void {
 
 // Call Entry.Ref.unlock when finished
 pub fn remove(self: *Cache, artifact: Artifact) !?Entry.Ref {
-    const index: usize = i: {
-        try self.lookup_lock.lock(self.io);
-        defer self.lookup_lock.unlock(self.io);
-        if (self.lookup.fetchRemove(artifact)) |kv| break :i kv.value;
-        return null;
-    };
+    const index = self.remove_lookup(artifact) orelse return null;
 
     const entry = &self.entries[index];
     try entry.lock_exclusive(self.io);
@@ -143,6 +138,12 @@ pub fn remove(self: *Cache, artifact: Artifact) !?Entry.Ref {
 
     entry.unlock_exclusive(self.io);
     return null;
+}
+
+pub fn remove_lookup(self: *Cache, artifact: Artifact) ?usize {
+    self.lookup_lock.lockUncancelable(self.io);
+    defer self.lookup_lock.unlock(self.io);
+    return if (self.lookup.fetchRemove(artifact)) |kv| kv.value else null;
 }
 
 fn reset_index(self: *Cache, index: usize, entry: *Entry) void {

@@ -18,11 +18,6 @@ fn download(request: *http.Request, artifact: Artifact, cache: *Caches, server_s
         return error.ServiceUnavailable;
     };
     defer mem_ref.unlock();
-    errdefer {
-        mem_ref.ptr.artifact = null;
-        mem_ref.ptr.bytes = null;
-        mem_ref.ptr.data = null;
-    }
 
     if (mem_ref.ptr.data) |data| {
         // Another thread already downloaded our file :)
@@ -30,6 +25,14 @@ fn download(request: *http.Request, artifact: Artifact, cache: *Caches, server_s
         try headers.check_and_set_headers(request, mem_ref.ptr);
         try request.respond(data);
         return;
+    }
+
+    errdefer {
+        _ = cache.mem.remove_lookup(artifact);
+        mem_ref.ptr.artifact = null;
+        mem_ref.ptr.bytes = null;
+        mem_ref.ptr.hash = null;
+        mem_ref.ptr.data = null;
     }
 
     // We don't have an etag to send here, but that's fine
