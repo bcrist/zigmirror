@@ -4,7 +4,8 @@ Description=zigmirror - Zig Community Mirror Cache Server
 After=network.target
 
 [Service]
-Type=exec
+Type=notify
+NotifyAccess=main
 ExecStart=/usr/local/bin/zigmirror /usr/local/etc/zigmirror.sx
 Restart=always
 RestartSec=1

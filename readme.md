@@ -43,7 +43,7 @@ When serving artifacts from the filesystem, `sendfile` is utilized, so the OS's 
 cd ~
 git clone https://codeberg.org/bcrist/zigmirror
 cd zigmirror
-zig build -Doptimize=ReleaseSafe
+zig build -Doptimize=ReleaseSafe -fsys=systemd
 
 # Install zigmirror:
 sudo useradd --system --shell /usr/sbin/nologin zigmirror
@@ -85,7 +85,7 @@ Updating after initial installation:
 ```sh
 cd ~/zigmirror
 git pull
-sudo zig build upgrade -Doptimize=ReleaseSafe -Dupgrade-bin-user=zigmirror
+sudo zig build upgrade -Doptimize=ReleaseSafe -fsys=systemd -Dupgrade-bin-user=zigmirror
 ```
 
 # TODO
@@ -94,6 +94,5 @@ sudo zig build upgrade -Doptimize=ReleaseSafe -Dupgrade-bin-user=zigmirror
 * Track overall downstream/upstream transfer rate estimate
 * content range request support
 * index.json route
-* optional libsystemd startup integration
 * Reduce arena usage in stats.zk rendering (implement lazy zkittle value accessor instead of intermediate []Cache_Entry list)
 * When upstream downloads are in progress, make upstream and downstream transfers fully concurrent (so multiple clients can stream data as it comes in and a slow client won't delay completion of the upstream transfer)

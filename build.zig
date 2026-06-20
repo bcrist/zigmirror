@@ -4,7 +4,6 @@ pub fn build(b: *std.Build) void {
 
     const build_options = b.addOptions();
     build_options.addOption(std.SemanticVersion, "version", std.SemanticVersion.parse(zon.version) catch @panic("Invalid version"));
-
     const build_options_mod = build_options.createModule();
 
     const resources = shittip.resources(b, &.{
@@ -13,15 +12,26 @@ pub fn build(b: *std.Build) void {
         .install = if (optimize == .Debug) "resources" else null,
     });
 
+    const http_module = b.dependency("shittip", .{}).module("http");
+
     const imports: []const std.Build.Module.Import = &.{
         .{ .name = "Temp_Allocator", .module = b.dependency("Temp_Allocator", .{}).module("Temp_Allocator") },
         .{ .name = "fmt", .module = b.dependency("fmt_helper", .{}).module("fmt") },
         .{ .name = "sx", .module = b.dependency("sx", .{}).module("sx") },
         .{ .name = "tempora", .module = b.dependency("tempora", .{}).module("tempora") },
         .{ .name = "dizzy", .module = b.dependency("dizzy", .{}).module("dizzy") },
-        .{ .name = "http", .module = b.dependency("shittip", .{}).module("http") },
+        .{ .name = "http", .module = http_module },
         .{ .name = "resources", .module = resources },
         .{ .name = "build_options", .module = build_options_mod },
+        .{
+            .name = "service_integration",
+            .module = b.createModule(.{
+                .root_source_file = b.path(if (b.systemIntegrationOption("systemd", .{})) "src/service_integration/systemd.zig" else "src/service_integration/dummy.zig"),
+                .imports = &.{
+                    .{ .name = "http", .module = http_module },
+                },
+            }),
+        },
     };
 
     const exe = b.addExecutable(.{

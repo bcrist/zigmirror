@@ -13,6 +13,8 @@ pub fn main(init: std.process.Init) !void {
     });
     defer threaded_io.deinit();
 
+    service_integration.init(threaded_io.io(), init.environ_map);
+
     var loop: http.Loop = .init(threaded_io.io(), init.gpa);
     defer loop.deinit();
 
@@ -23,7 +25,7 @@ pub fn main(init: std.process.Init) !void {
         http.routing.resource("style.css"),
         .{ "/", Module(@import("root.zig")) },
         .{ "/stats", Module(@import("stats.zig")) },
-        .{ "/shutdown", Config.shutdown_check, Caches.evict_all_mem, http.routing.shutdown },
+        .{ "/shutdown", Config.shutdown_check, service_integration.stopping, Caches.evict_all_mem, http.routing.shutdown },
         // .{ "/index.json", rate_limiter, Module(@import("index.zig")) },
         .{ "/**", rate_limiter, Module(@import("handle_from_cache.zig")) },
     });
@@ -42,6 +44,8 @@ pub fn main(init: std.process.Init) !void {
     }
 
     loop.begin_running();
+    loop.io.sleep(.fromSeconds(1), .awake) catch {};
+    service_integration.ready(&loop);
 
     if (config.request_rate_limit) |rlconfig| {
         try server.tasks.group.concurrent(loop.io, rate_limit_cleanup_task, .{
@@ -106,6 +110,7 @@ fn mem_cache_cleanup_task(io: std.Io, cache: *Caches, server_stats: *Server_Stat
 
 fn signal_handler_shutdown_task(loop: *http.Loop, cache: *Caches, server_stats: *Server_Stats, config: Config) error{Canceled}!void {
     try graceful_shutdown_latch.wait(loop.io);
+    service_integration.stopping(loop);
     defer loop.stop();
     try cache.evict_all_mem(server_stats, &config);
 }
@@ -379,6 +384,7 @@ const Caches = @import("Caches.zig");
 const Cache = @import("Cache.zig");
 const Rate_Limiter = @import("Rate_Limiter.zig");
 const Config = @import("Config.zig");
+const service_integration = @import("service_integration");
 const build_options = @import("build_options");
 const Temp_Allocator = @import("Temp_Allocator");
 const tempora = @import("tempora");
