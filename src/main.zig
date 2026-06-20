@@ -4,7 +4,7 @@ comptime {
 }
 
 pub fn main(init: std.process.Init) !void {
-    log.info("Zigmirror {s} starting up...", .{ zon.version });
+    log.info("zigmirror {f} starting up...", .{ build_options.version });
 
     const config = try load_config(init.arena.allocator(), init.gpa, init.io, init.minimal.args);
 
@@ -318,9 +318,9 @@ const Caches = @import("Caches.zig");
 const Cache = @import("Cache.zig");
 const Rate_Limiter = @import("Rate_Limiter.zig");
 const Config = @import("Config.zig");
+const build_options = @import("build_options");
 const Temp_Allocator = @import("Temp_Allocator");
 const tempora = @import("tempora");
 const dizzy = @import("dizzy");
 const http = @import("http");
-const zon = @import("zon");
 const std = @import("std");

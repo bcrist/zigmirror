@@ -2,9 +2,10 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
     const target = b.standardTargetOptions(.{});
 
-    const zon = b.createModule(.{
-        .root_source_file = b.path("build.zig.zon"),
-    });
+    const build_options = b.addOptions();
+    build_options.addOption(std.SemanticVersion, "version", std.SemanticVersion.parse(zon.version) catch @panic("Invalid version"));
+
+    const build_options_mod = build_options.createModule();
 
     const resources = shittip.resources(b, &.{
         .{ .path = "resources" },
@@ -20,7 +21,7 @@ pub fn build(b: *std.Build) void {
         .{ .name = "dizzy", .module = b.dependency("dizzy", .{}).module("dizzy") },
         .{ .name = "http", .module = b.dependency("shittip", .{}).module("http") },
         .{ .name = "resources", .module = resources },
-        .{ .name = "zon", .module = zon },
+        .{ .name = "build_options", .module = build_options_mod },
     };
 
     const exe = b.addExecutable(.{
@@ -87,5 +88,6 @@ pub fn build(b: *std.Build) void {
     b.step("upgrade", "Copies the new zigmirror executable to the system bin path (-Dupgrade-bin-path) and restarts the zigmirror systemd service").dependOn(&systemd_start.step);
 }
 
+const zon = @import("build.zig.zon");
 const shittip = @import("shittip");
 const std = @import("std");

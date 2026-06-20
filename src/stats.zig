@@ -68,7 +68,7 @@ pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_
             .mem = cache_mem,
             .fs = cache_fs,
         },
-        .zigmirror_version = zon.version,
+        .zigmirror_version = build_options.version,
         .show_rate_limit_stats = config.show_rate_limit_stats,
         .rate_limits = rate_limits,
     }, .{ .Context = Context });
@@ -210,7 +210,7 @@ const Context = struct {
 const DTO = tempora.Date_Time.With_Offset;
 const dtf = DTO.sql_local;
 
-const zon = @import("zon");
+const build_options = @import("build_options");
 const Rate_Limiter = @import("Rate_Limiter.zig");
 const Config = @import("Config.zig");
 const Cache = @import("Cache.zig");
