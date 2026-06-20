@@ -113,6 +113,6 @@
             </tr>
 \\ ~
         </table>
-        <footer><a href="https://codeberg.org/bcrist/zigmirror">zigmirror \\zigmirror_version//</a> built with zig \\zig_version//</footer>
+        <footer><a href="https://codeberg.org/bcrist/zigmirror">zigmirror \\zigmirror_version//</a> | zig \\zig_version//</footer>
     </body>
 </html>

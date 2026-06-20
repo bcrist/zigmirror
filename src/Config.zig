@@ -1,5 +1,5 @@
 /// The hostname that should be used to create links in /stats, /index.json, etc.
-public_hostname: []const u8 = "localhost",
+public_hostname: []const u8 = "localhost:8080",
 
 /// The IP addresses/hostnames and port numbers to listen on.
 /// You may specify multiple entries (e.g. to listen on both IPv4 and IPv6)

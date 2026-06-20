@@ -21,6 +21,7 @@ pub fn main(init: std.process.Init) !void {
 
     try server.router("", .{
         http.routing.resource("style.css"),
+        .{ "/", Module(@import("root.zig")) },
         .{ "/stats", Module(@import("stats.zig")) },
         .{ "/shutdown", Config.shutdown_check, Caches.evict_all_mem, http.routing.shutdown },
         // .{ "/index.json", rate_limiter, Module(@import("index.zig")) },

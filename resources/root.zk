@@ -1,0 +1,89 @@
+<html>
+    <head>
+        <title>\\hostname//: Zig toolchain mirror</title>
+        <link rel="stylesheet" href="\\ @resource "style.css" //">
+    </head>
+    <body>
+        <h1>\\hostname//: Zig toolchain mirror</h1>
+        <table>
+            <tr>
+                <th></th>
+                <th>Artifact Type</th>
+                <th>Upstream URL</th>
+                <th>Mirror URL</th>
+            </tr>
+
+            <tr>
+                <td rowspan="6">Releases</td>
+                <td rowspan="2">Source</td>
+                <td class="left">https://ziglang.org/download/<span class="placeholder">$VERSION</span>/zig-<span class="placeholder">$VERSION</span>.tar.xz</td>
+                <td class="left">https://\\hostname///zig-<span class="placeholder">$VERSION</span>.tar.xz</td>
+            </tr>
+            <tr>
+                <td class="left">https://ziglang.org/download/<span class="placeholder">$VERSION</span>/zig-<span class="placeholder">$VERSION</span>.tar.xz.minisig</td>
+                <td class="left">https://\\hostname///zig-<span class="placeholder">$VERSION</span>.tar.xz.minisig</td>
+            </tr>
+
+            <tr>
+                <td rowspan="2">Zig Bootstrap</td>
+                <td class="left">https://ziglang.org/download/<span class="placeholder">$VERSION</span>/zig-bootstrap-<span class="placeholder">$VERSION</span>.tar.xz</td>
+                <td class="left">https://\\hostname///zig-bootstrap-<span class="placeholder">$VERSION</span>.tar.xz</td>
+            </tr>
+            <tr>
+                <td class="left">https://ziglang.org/download/<span class="placeholder">$VERSION</span>/zig-bootstrap-<span class="placeholder">$VERSION</span>.tar.xz.minisig</td>
+                <td class="left">https://\\hostname///zig-bootstrap-<span class="placeholder">$VERSION</span>.tar.xz.minisig</td>
+            </tr>
+
+            <tr>
+                <td rowspan="2">Binaries</td>
+                <td class="left">https://ziglang.org/download/<span class="placeholder">$VERSION</span>/zig-<span class="placeholder">$TARGET</span>-<span class="placeholder">$VERSION</span>.<span class="placeholder">$EXT</span></td>
+                <td class="left">https://\\hostname///zig-<span class="placeholder">$TARGET</span>-<span class="placeholder">$VERSION</span>.<span class="placeholder">$EXT</span></td>
+            </tr>
+            <tr>
+                <td class="left">https://ziglang.org/download/<span class="placeholder">$VERSION</span>/zig-<span class="placeholder">$TARGET</span>-<span class="placeholder">$VERSION</span>.<span class="placeholder">$EXT</span>.minisig</td>
+                <td class="left">https://\\hostname///zig-<span class="placeholder">$TARGET</span>-<span class="placeholder">$VERSION</span>.<span class="placeholder">$EXT</span>.minisig</td>
+            </tr>
+
+            <tr>
+                <td rowspan="6">Nightlies</td>
+                <td rowspan="2">Source</td>
+                <td class="left">https://ziglang.org/builds/zig-<span class="placeholder">$VERSION</span>-dev.<span class="placeholder">$DEPTH</span>+<span class="placeholder">$COMMIT</span>.tar.xz</td>
+                <td class="left">https://\\hostname///zig-<span class="placeholder">$VERSION</span>-dev.<span class="placeholder">$DEPTH</span>+<span class="placeholder">$COMMIT</span>.tar.xz</td>
+            </tr>
+            <tr>
+                <td class="left">https://ziglang.org/builds/zig-<span class="placeholder">$VERSION</span>-dev.<span class="placeholder">$DEPTH</span>+<span class="placeholder">$COMMIT</span>.tar.xz.minisig</td>
+                <td class="left">https://\\hostname///zig-<span class="placeholder">$VERSION</span>-dev.<span class="placeholder">$DEPTH</span>+<span class="placeholder">$COMMIT</span>.tar.xz.minisig</td>
+            </tr>
+
+            <tr>
+                <td rowspan="2">Zig Bootstrap</td>
+                <td class="left">https://ziglang.org/builds/zig-bootstrap-<span class="placeholder">$VERSION</span>-dev.<span class="placeholder">$DEPTH</span>+<span class="placeholder">$COMMIT</span>.tar.xz</td>
+                <td class="left">https://\\hostname///zig-bootstrap-<span class="placeholder">$VERSION</span>-dev.<span class="placeholder">$DEPTH</span>+<span class="placeholder">$COMMIT</span>.tar.xz</td>
+            </tr>
+            <tr>
+                <td class="left">https://ziglang.org/builds/zig-bootstrap-<span class="placeholder">$VERSION</span>-dev.<span class="placeholder">$DEPTH</span>+<span class="placeholder">$COMMIT</span>.tar.xz.minisig</td>
+                <td class="left">https://\\hostname///zig-bootstrap-<span class="placeholder">$VERSION</span>-dev.<span class="placeholder">$DEPTH</span>+<span class="placeholder">$COMMIT</span>.tar.xz.minisig</td>
+            </tr>
+
+            <tr>
+                <td rowspan="2">Binaries</td>
+                <td class="left">https://ziglang.org/builds/zig-<span class="placeholder">$TARGET</span>-<span class="placeholder">$VERSION</span>-dev.<span class="placeholder">$DEPTH</span>+<span class="placeholder">$COMMIT</span>.<span class="placeholder">$EXT</span></td>
+                <td class="left">https://\\hostname///zig-<span class="placeholder">$TARGET</span>-<span class="placeholder">$VERSION</span>-dev.<span class="placeholder">$DEPTH</span>+<span class="placeholder">$COMMIT</span>.<span class="placeholder">$EXT</span></td>
+            </tr>
+            <tr>
+                <td class="left">https://ziglang.org/builds/zig-<span class="placeholder">$TARGET</span>-<span class="placeholder">$VERSION</span>-dev.<span class="placeholder">$DEPTH</span>+<span class="placeholder">$COMMIT</span>.<span class="placeholder">$EXT</span><span class="placeholder">$EXT</span>.minisig</td>
+                <td class="left">https://\\hostname///zig-<span class="placeholder">$TARGET</span>-<span class="placeholder">$VERSION</span>.<span class="placeholder">$EXT</span>-dev.<span class="placeholder">$DEPTH</span>+<span class="placeholder">$COMMIT</span><span class="placeholder">$EXT</span>.minisig</td>
+            </tr>
+
+\\allow_devkits?
+            <tr>
+                <td></td>
+                <td>LLVM/LLD/Clang Devkits</td>
+                <td class="left">https://ziglang.org/deps/zig+llvm+lld+clang-<span class="placeholder">$TARGET</span>-<span class="placeholder">$VERSION</span>-dev.<span class="placeholder">$DEPTH</span>+<span class="placeholder">$COMMIT</span>.<span class="placeholder">$EXT</span></td>
+                <td class="left">https://\\hostname///zig+llvm+lld+clang-<span class="placeholder">$TARGET</span>-<span class="placeholder">$VERSION</span>-dev.<span class="placeholder">$DEPTH</span>+<span class="placeholder">$COMMIT</span>.<span class="placeholder">$EXT</span></td>
+            </tr>
+\\~
+        </table>
+        <footer><a href="/stats">Cache Stats</a> | <a href="https://codeberg.org/bcrist/zigmirror">zigmirror \\zigmirror_version//</a> | zig \\zig_version//</footer>
+    </body>
+</html>

@@ -93,7 +93,6 @@ sudo zig build upgrade -Doptimize=ReleaseSafe -Dupgrade-bin-user=zigmirror
 * Load fs cache metadata from file on startup
 * Track overall downstream/upstream transfer rate estimate
 * content range request support
-* static "/" route with info
 * index.json route
 * optional libsystemd startup integration
 * Reduce arena usage in stats.zk rendering (implement lazy zkittle value accessor instead of intermediate []Cache_Entry list)
