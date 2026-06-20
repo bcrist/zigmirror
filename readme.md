@@ -90,7 +90,6 @@ sudo zig build upgrade -Doptimize=ReleaseSafe -Dupgrade-bin-user=zigmirror
 
 # TODO
 * Parse build.zig.zon version in build.zig instead of adding build.zig.zon as a module
-* If-Modified-Since, If-None-Match caching w/ 304 response
 * Save fs cache metadata to file on graceful shutdown
 * Load fs cache metadata from file on startup
 * rename Download_Authority -> Upstream_Token

@@ -7,10 +7,9 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
         defer ref.unlock();
 
         if (ref.ptr.data) |data| {
-            try request.set_response_header("content-type", ref.ptr.artifact.?.extension.content_type());
-            try request.respond(data);
-
             Caches.report_hit(request, server_stats, ref.ptr);
+            try headers.check_and_set_headers(request, ref.ptr);
+            try request.respond(data);
             return;
         }
 
@@ -28,7 +27,7 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
 
         if (ref.ptr.bytes) |bytes| {
             if (request.req.head.method == .HEAD) {
-                try request.set_response_header("content-type", ref.ptr.artifact.?.extension.content_type());
+                try headers.check_and_set_headers(request, ref.ptr);
                 try request.respond("");
                 return;
             }
@@ -63,7 +62,8 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
 
             var file_reader = cache_file.reader(request.io, &.{});
 
-            try request.set_response_header("content-type", ref.ptr.artifact.?.extension.content_type());
+            Caches.report_hit(request, server_stats, ref.ptr);
+            try headers.check_and_set_headers(request, ref.ptr);
             request.response.content_length = bytes;
 
             var writer: *std.Io.Writer = try request.response_writer();
@@ -78,8 +78,7 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
                 },
                 else => |e| return e,
             };
-
-            Caches.report_hit(request, server_stats, ref.ptr);
+            
             return;
         }
     }
@@ -93,6 +92,7 @@ const Server_Stats = @import("Server_Stats.zig");
 const Artifact = @import("Artifact.zig");
 const Caches = @import("Caches.zig");
 const Config = @import("Config.zig");
+const headers = @import("headers.zig");
 const tempora = @import("tempora");
 const http = @import("http");
 const std = @import("std");

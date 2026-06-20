@@ -26,12 +26,14 @@ fn download(request: *http.Request, artifact: Artifact, cache: *Caches, server_s
 
     if (mem_ref.ptr.data) |data| {
         // Another thread already downloaded our file :)
-        try request.set_response_header("content-type", mem_ref.ptr.artifact.?.extension.content_type());
-        try request.respond(data);
-
         Caches.report_hit(request, server_stats, mem_ref.ptr);
+        try headers.check_and_set_headers(request, mem_ref.ptr);
+        try request.respond(data);
         return;
     }
+
+    // We don't have an etag to send here, but that's fine
+    try headers.check_and_set_headers(request, mem_ref.ptr);
 
     var collector: std.Io.Writer.Allocating = .init(cache.mem.gpa);
     defer collector.deinit();
@@ -107,7 +109,6 @@ fn download(request: *http.Request, artifact: Artifact, cache: *Caches, server_s
         request,
         &upstream_req,
         request_started,
-        mem_ref.ptr.artifact.?.extension.content_type(),
         &collector.writer,
         &bytes,
     });
@@ -255,7 +256,7 @@ const Transfer_Error = error {
     NotFound,
 };
 
-fn transfer(request: *http.Request, upstream_req: *std.http.Client.Request, request_started: i64, content_type: []const u8, collector: *std.Io.Writer, bytes: *std.atomic.Value(usize)) Transfer_Error!Transfer_Result {
+fn transfer(request: *http.Request, upstream_req: *std.http.Client.Request, request_started: i64, collector: *std.Io.Writer, bytes: *std.atomic.Value(usize)) Transfer_Error!Transfer_Result {
     upstream_req.sendBodiless() catch |err| switch (err) {
         error.WriteFailed => return .send_failed,
     };
@@ -274,7 +275,6 @@ fn transfer(request: *http.Request, upstream_req: *std.http.Client.Request, requ
     const head_received = tempora.now_utc(request.io).timestamp_ms();
     const head_time: u32 = @intCast(std.math.clamp(head_received - request_started, 0, std.math.maxInt(u32)));
 
-    try request.set_response_header("content-type", content_type);
     request.response.content_length = upstream_res.head.content_length;
 
     var response_writer = try request.response_writer();
@@ -333,6 +333,7 @@ const Artifact = @import("Artifact.zig");
 const Caches = @import("Caches.zig");
 const Cache = @import("Cache.zig");
 const Config = @import("Config.zig");
+const headers = @import("headers.zig");
 const tempora = @import("tempora");
 const fmt = @import("fmt");
 const http = @import("http");
