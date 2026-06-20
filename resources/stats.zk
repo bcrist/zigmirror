@@ -59,7 +59,7 @@
             </thead>
 \\ cache.mem.entries:
             <tr>
-                <td>\\index//</td>
+                <td\\locked?;// class="warn"\\~//>\\index//</td>
                 <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\artifact_type//</td>
                 <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//><a href="/\\filename//">\\version//</a></td>
                 <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\extension//</td>
@@ -97,7 +97,7 @@
             </thead>
 \\ cache.fs.entries:
             <tr>
-                <td>\\index//</td>
+                <td\\locked?;// class="warn"\\~//>\\index//</td>
                 <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\artifact_type//</td>
                 <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//><a href="/\\filename//">\\version//</a></td>
                 <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\extension//</td>

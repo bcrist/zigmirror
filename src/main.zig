@@ -164,65 +164,9 @@ const Context = struct {
             var fs_cache: Cache = try .init(io, gpa, config.cache.fs.max_entries);
             errdefer fs_cache.deinit();
 
-            var dir = try std.Io.Dir.cwd().createDirPathOpen(io, config.cache.fs.path, .{ .open_options = .{ .iterate = true } });
-            defer dir.close(io);
-
             var server_stats: Server_Stats = .init(io, config.upstream.default_connect_timeout_seconds * std.time.ms_per_s / 2);
-            const startup_time = server_stats.start_time.with_offset(0).timestamp_ms();
 
-            var iter = dir.iterateAssumeFirstIteration();
-            while (try iter.next(io)) |entry| {
-                if (Artifact.maybe_parse(entry.name)) |artifact| {
-                    const stat = dir.statFile(io, entry.name, .{}) catch |err| switch (err) {
-                        error.IsDir => continue,
-                        else => |e| return e,
-                    };
-
-                    if (artifact.artifact_type == .devkit and !config.allow_devkit_artifacts) continue;
-
-                    var file = try dir.openFile(io, entry.name, .{});
-                    defer file.close(io);
-
-                    var hash_buf: [16384]u8 = undefined;
-                    var reader = file.reader(io, &hash_buf);
-                    var hasher: std.crypto.hash.sha2.Sha256 = .init(.{});
-
-                    while (!reader.atEnd()) {
-                        reader.interface.fillMore() catch |err| switch (err) {
-                            error.EndOfStream => break,
-                            error.ReadFailed => {
-                                log.err("Failed to calculate SHA256 for artifact {f}: {t}", .{ artifact, reader.err orelse error.ReadFailed });
-                                continue;
-                            },
-                        };
-                        const buffered = reader.interface.buffered();
-                        hasher.update(buffered);
-                        reader.interface.toss(buffered.len);
-                    }
-
-                    if (hasher.total_len != stat.size) {
-                        log.err("Failed to calculate SHA256 for artifact {f}: expected {} bytes but found {}", .{ artifact, stat.size, hasher.total_len });
-                        continue;
-                    }
-
-                    const fs_ref: Cache.Entry.Ref = for (0..100) |_| {
-                        if (try fs_cache.get_or_add(artifact)) |ref| break ref;
-                        try Caches.maybe_evict_from_fs_cache(&fs_cache, &server_stats, config.cache.fs.path);
-                    } else {
-                        return error.FsCacheInitError;
-                    };
-                    defer fs_ref.unlock();
-
-                    const bytes: u32 = @intCast(stat.size);
-                    fs_ref.ptr.bytes = bytes;
-                    fs_ref.ptr.hash = hasher.finalResult();
-                    fs_ref.ptr.requests.first_time.store(startup_time, .monotonic);
-                    fs_ref.ptr.requests.last_time.store(startup_time, .monotonic);
-                    fs_ref.ptr.requests.count.store(1, .monotonic);
-                    fs_cache.report_added_bytes(bytes);
-                    log.info("Initializing fs cache: {f}", .{ artifact });
-                }
-            }
+            try Caches.load_fs_cache(&fs_cache, &server_stats, config.cache.fs.path, config.allow_devkit_artifacts);
 
             return .{
                 .config = config,

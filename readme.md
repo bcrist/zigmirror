@@ -89,8 +89,6 @@ sudo zig build upgrade -Doptimize=ReleaseSafe -fsys=systemd -Dupgrade-bin-user=z
 ```
 
 # TODO
-* Save fs cache metadata to file on graceful shutdown
-* Load fs cache metadata from file on startup
 * Track overall downstream/upstream transfer rate estimate
 * content range request support
 * index.json route

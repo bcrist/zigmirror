@@ -41,14 +41,14 @@ pub fn active_entries(self: *Cache) !usize {
     return self.lookup.size;
 }
 
-fn get_index(self: *Cache, artifact: Artifact) !?usize {
+fn get_index(self: *Cache, artifact: Artifact) error{Canceled}!?usize {
     try self.lookup_lock.lockShared(self.io);
     defer self.lookup_lock.unlockShared(self.io);
     return self.lookup.get(artifact);
 }
 
 // Call Entry.Ref.unlock when finished
-pub fn get(self: *Cache, artifact: Artifact, mode: Entry.Ref.Locking_Mode) !?Entry.Ref {
+pub fn get(self: *Cache, artifact: Artifact, mode: Entry.Ref.Locking_Mode) error{Canceled}!?Entry.Ref {
     for (0..10) |_| {
         const index = try self.get_index(artifact) orelse return null;
         const ref: Entry.Ref = .init(self.io, &self.entries[index], mode);
