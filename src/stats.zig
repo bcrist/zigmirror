@@ -83,6 +83,7 @@ pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_
             .fs = cache_fs,
         },
         .zigmirror_version = build_options.version,
+        .zig_version = @import("builtin").zig_version,
         .show_rate_limit_stats = config.show_rate_limit_stats,
         .rate_limits = rate_limits,
     }, .{ .Context = Context });
