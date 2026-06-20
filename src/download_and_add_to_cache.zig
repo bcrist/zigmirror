@@ -1,4 +1,4 @@
-pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, server_stats: *Server_Stats, config: *const Config, arena: std.mem.Allocator, _: Download_Authority) !void {
+pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, server_stats: *Server_Stats, config: *const Config, arena: std.mem.Allocator, _: Download_Permission.Upstream, _: Download_Permission.Downstream) !void {
     const artifact = maybe_artifact orelse return error.NotFound;
     try download(request, artifact, cache, server_stats, config, arena);
     try cache.cleanup(server_stats, config);
@@ -279,7 +279,7 @@ fn transfer(request: *http.Request, upstream_req: *std.http.Client.Request, requ
 
     var response_writer = try request.response_writer();
 
-    var transfer_buffer: [64 * 1024]u8 = undefined;
+    var transfer_buffer: [32 * 1024]u8 = undefined;
     const upstream_reader = upstream_res.reader(&transfer_buffer);
 
     while (true) {
@@ -327,7 +327,7 @@ fn transfer_watchdog(io: std.Io, cid: http.Connection_Id, request_started: i64, 
 
 const log = std.log.scoped(.zigmirror);
 
-const Download_Authority = @import("Download_Authority.zig");
+const Download_Permission = @import("Download_Permission.zig");
 const Server_Stats = @import("Server_Stats.zig");
 const Artifact = @import("Artifact.zig");
 const Caches = @import("Caches.zig");

@@ -91,14 +91,10 @@ sudo zig build upgrade -Doptimize=ReleaseSafe -Dupgrade-bin-user=zigmirror
 # TODO
 * Save fs cache metadata to file on graceful shutdown
 * Load fs cache metadata from file on startup
-* rename Download_Authority -> Upstream_Token
-* add Downstream_Token and allow configuration of max concurrent downstream downloads
-* configuration to send 503 if unable to claim an Upstream_Token
-* configuration to send 503 if unable to claim a Downstream_Token
-* Track number of in-progress client transfers and upstream transfers currently in progress
 * Track overall downstream/upstream transfer rate estimate
 * content range request support
 * static "/" route with info
 * index.json route
 * optional libsystemd startup integration
 * Reduce arena usage in stats.zk rendering (implement lazy zkittle value accessor instead of intermediate []Cache_Entry list)
+* When upstream downloads are in progress, make upstream and downstream transfers fully concurrent (so multiple clients can stream data as it comes in and a slow client won't delay completion of the upstream transfer)

@@ -149,7 +149,7 @@ const Context = struct {
         cache: Caches,
         rate_limiter: Rate_Limiter,
         server_stats: Server_Stats,
-        upstream_semaphore: std.Io.Semaphore,
+        downloads: Download_Permission,
 
         pub fn init(io: std.Io, gpa: std.mem.Allocator, config: Config) !@This() {
             var mem_cache: Cache = try .init(io, gpa, config.cache.mem.max_entries);
@@ -226,7 +226,11 @@ const Context = struct {
                 },
                 .rate_limiter = .init(io, gpa, config.request_rate_limit),
                 .server_stats = server_stats,
-                .upstream_semaphore = .{ .permits = config.upstream.max_connections },
+                .downloads = .{
+                    .upstream_semaphore = .{ .permits = config.upstream.max_connections },
+                    .downstream_semaphore = .{ .permits = config.max_concurrent_downloads },
+                    .overload_semaphore = .{ .permits = config.max_concurrent_connections },
+                },
             };
         }
 
@@ -239,18 +243,74 @@ const Context = struct {
 };
 
 const Injector = dizzy.Injector(struct {
-    pub fn inject_download_authority(ctx: Context) !Download_Authority {
-        try ctx.context.upstream_semaphore.wait(ctx.request.io);
-        locking_log.debug("Download Authority acquired ({} available)", .{ @atomicLoad(usize, &ctx.context.upstream_semaphore.permits, .monotonic) });
+    pub fn inject_download_permission_upstream(ctx: Context) !Download_Permission.Upstream {
+        ctx.context.downloads.upstream_semaphore.waitTimeout(ctx.request.io, .{ .duration = .{
+            .clock = .awake,
+            .raw = .fromSeconds(ctx.context.config.upstream.max_wait_time_seconds),
+        }}) catch |err| switch (err) {
+            error.Timeout => return error.InsufficientResources,
+            else => |e| return e,
+        };
+        if (comptime std.log.logEnabled(.debug, .locking)) {
+            locking_log.debug("Upstream download permission acquired ({} available)", .{
+                @atomicLoad(usize, &ctx.context.downloads.upstream_semaphore.permits, .seq_cst),
+            });
+        }
         return .{
             .io = ctx.request.io,
-            .semaphore = &ctx.context.upstream_semaphore,
+            .semaphore = &ctx.context.downloads.upstream_semaphore,
         };
     }
 
-    pub fn inject_download_authority_cleanup(da: Download_Authority) void {
-        da.semaphore.post(da.io);
-        locking_log.debug("Download Authority returned ({} available)", .{ @atomicLoad(usize, &da.semaphore.permits, .monotonic) });
+    pub fn inject_download_permission_upstream_cleanup(d: Download_Permission.Upstream) void {
+        d.semaphore.post(d.io);
+        if (comptime std.log.logEnabled(.debug, .locking)) {
+            locking_log.debug("Upstream download permission returned ({} available)", .{
+                @atomicLoad(usize, &d.semaphore.permits, .seq_cst),
+            });
+        }
+    }
+
+    pub fn inject_download_permission_downstream(ctx: Context) !Download_Permission.Downstream {
+        ctx.context.downloads.overload_semaphore.waitTimeout(ctx.request.io, .none) catch |err| switch (err) {
+            error.Timeout => return error.InsufficientResources,
+            else => |e| return e,
+        };
+        errdefer ctx.context.downloads.overload_semaphore.post(ctx.request.io);
+
+        ctx.context.downloads.downstream_semaphore.waitTimeout(ctx.request.io, .{ .duration = .{
+            .clock = .awake,
+            .raw = .fromSeconds(ctx.context.config.max_wait_time_seconds),
+        }}) catch |err| switch (err) {
+            error.Timeout => return error.InsufficientResources,
+            else => |e| return e,
+        };
+        if (comptime std.log.logEnabled(.debug, .locking)) {
+            locking_log.debug("Downstream download permission acquired ({} available, {} connections until overload)", .{
+                @atomicLoad(usize, &ctx.context.downloads.downstream_semaphore.permits, .seq_cst),
+                @atomicLoad(usize, &ctx.context.downloads.overload_semaphore.permits, .seq_cst),
+            });
+        }
+        return .{
+            .io = ctx.request.io,
+            .semaphore = &ctx.context.downloads.downstream_semaphore,
+            .overload_semaphore = &ctx.context.downloads.overload_semaphore,
+        };
+    }
+
+    pub fn inject_download_permission_downstream_cleanup(d: Download_Permission.Downstream) void {
+        d.semaphore.post(d.io);
+        d.overload_semaphore.post(d.io);
+        if (comptime std.log.logEnabled(.debug, .locking)) {
+            locking_log.debug("Downstream download permission returned ({} available, {} connections until overload)", .{
+                @atomicLoad(usize, &d.semaphore.permits, .seq_cst),
+                @atomicLoad(usize, &d.overload_semaphore.permits, .seq_cst),
+            });
+        }
+    }
+
+    pub fn inject_download_permission(ctx: Context) *Download_Permission {
+        return &ctx.context.downloads;
     }
 
     pub fn inject_config(ctx: Context) *const Config {
@@ -311,7 +371,7 @@ const log = std.log.scoped(.zigmirror);
 
 pub const resources = @import("resources");
 
-const Download_Authority = @import("Download_Authority.zig");
+const Download_Permission = @import("Download_Permission.zig");
 const Server_Stats = @import("Server_Stats.zig");
 const Artifact = @import("Artifact.zig");
 const Caches = @import("Caches.zig");

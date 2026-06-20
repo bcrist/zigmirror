@@ -113,10 +113,24 @@ const State = struct {
 };
 
 pub const Config = struct {
+    /// When a new client is seen, they can make this many requests instantly without getting rate limited.
+    /// Each request they make reduces their bucket's "balance" by 1.
     bucket_size: u64 = 10,
+
+    /// Each client's bucket balance will increase by 1 every `60 / refill_per_minute` seconds.
+    /// Once it reaches `bucket_size`, it will stop increasing.
     refill_per_minute: u32 = 2,
+
+    /// Requests that do not have an X-Forwarded-For HTTP header are normally blocked.
+    /// Generally you should only set this to true when testing locally.
     accept_without_x_forwarded_for: bool = false,
+
+    /// Requests that have too many items in their X-Forwarded-For HTTP header will be blocked.
+    /// This makes it harder for an attacker to perform a DoS where they impersonate thousands or millions of IPs.
     max_x_forwarded_for_ips: usize = 10,
+
+    /// A periodic task runs to remove any IP buckets that have reached their maximum size.
+    /// Otherwise, the rate limiter would leak memory and eventually cause a crash.
     cleanup_interval_seconds: u32 = 60,
 };
 

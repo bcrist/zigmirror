@@ -1,4 +1,4 @@
-pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_Stats, cache: *Caches, arena: std.mem.Allocator, rate_limiter: *Rate_Limiter) !void {
+pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_Stats, cache: *Caches, arena: std.mem.Allocator, rate_limiter: *Rate_Limiter, downloads: *Download_Permission) !void {
     const server_start_time = server_stats.start_time.with_offset(0);
     const now = tempora.now_utc(request.io);
     const now_ts = now.timestamp_ms();
@@ -55,6 +55,13 @@ pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_
         }
     }
 
+    const upstream_permits_remaining = @atomicLoad(usize, &downloads.upstream_semaphore.permits, .seq_cst);
+    const downstream_permits_remaining = @atomicLoad(usize, &downloads.downstream_semaphore.permits, .seq_cst);
+    const overflow_permits_remaining = @atomicLoad(usize, &downloads.overload_semaphore.permits, .seq_cst);
+
+    const num_transfers_in_progress_upstream = config.upstream.max_connections - upstream_permits_remaining;
+    const num_transfers_in_progress_downstream = config.max_concurrent_downloads - downstream_permits_remaining;
+
     try request.render("stats.zk", .{
         .hostname = config.public_hostname,
         .server_start_time = server_start_time.fmt(dtf),
@@ -64,6 +71,13 @@ pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_
         .artifacts_downloaded_per_hour = round1(artifacts_downloaded / hours_since_start),
         .upstream_head_time_archive = std.Io.Duration.fromMilliseconds(server_stats.expected_upstream_head_time_ms_archive.load(.monotonic) * 2),
         .upstream_head_time_minisig = std.Io.Duration.fromMilliseconds(server_stats.expected_upstream_head_time_ms_minisig.load(.monotonic) * 2),
+        .max_transfers_in_progress_upstream = config.upstream.max_connections,
+        .max_transfers_in_progress_downstream = config.max_concurrent_downloads,
+        .num_transfers_in_progress_upstream = num_transfers_in_progress_upstream,
+        .num_transfers_in_progress_downstream = num_transfers_in_progress_downstream,
+        .num_transfers_pending = config.max_concurrent_connections - overflow_permits_remaining -| num_transfers_in_progress_downstream,
+        .transfer_rate_upstream = "TODO",
+        .transfer_rate_downstream = "TODO",
         .cache = .{
             .mem = cache_mem,
             .fs = cache_fs,
@@ -211,6 +225,7 @@ const DTO = tempora.Date_Time.With_Offset;
 const dtf = DTO.sql_local;
 
 const build_options = @import("build_options");
+const Download_Permission = @import("Download_Permission.zig");
 const Rate_Limiter = @import("Rate_Limiter.zig");
 const Config = @import("Config.zig");
 const Cache = @import("Cache.zig");

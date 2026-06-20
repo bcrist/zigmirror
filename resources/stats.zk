@@ -15,6 +15,9 @@
             <tr><th>Filesystem cache usage</th><td class="left">\\cache.fs.bytes// (\\cache.fs.active_entries// entries)</td></tr>
             <tr><th>Upstream archive timeout</th><td class="left">\\upstream_head_time_archive//</td></tr>
             <tr><th>Upstream minisig timeout</th><td class="left">\\upstream_head_time_minisig//</td></tr>
+            <tr><th>Active upstream transfers</th><td class="left">\\num_transfers_in_progress_upstream///\\max_transfers_in_progress_upstream//<!-- (\\transfer_rate_upstream///s)--></td></tr>
+            <tr><th>Active downstream transfers</th><td class="left">\\num_transfers_in_progress_downstream///\\max_transfers_in_progress_downstream//<!-- (\\transfer_rate_downstream///s)--></td></tr>
+            <tr><th>Pending downstream transfers</th><td class="left">\\num_transfers_pending//</td></tr>
         </table>
 \\ show_rate_limit_stats?
         <h2>Rate Limiting</h2>

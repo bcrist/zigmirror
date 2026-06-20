@@ -1,4 +1,4 @@
-pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, server_stats: *Server_Stats, config: *const Config) !void {
+pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, server_stats: *Server_Stats, config: *const Config, _: Download_Permission.Downstream) !void {
     const artifact = maybe_artifact orelse return error.NotFound;
 
     const now = request.received_dt.with_offset(0).timestamp_ms();
@@ -88,6 +88,7 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
 
 const log = std.log.scoped(.zigmirror);
 
+const Download_Permission = @import("Download_Permission.zig");
 const Server_Stats = @import("Server_Stats.zig");
 const Artifact = @import("Artifact.zig");
 const Caches = @import("Caches.zig");
