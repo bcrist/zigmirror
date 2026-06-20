@@ -43,7 +43,7 @@ When serving artifacts from the filesystem, `sendfile` is utilized, so the OS's 
 cd ~
 git clone https://codeberg.org/bcrist/zigmirror
 cd zigmirror
-zig build -Doptimize=ReleaseSafe -fsys=systemd
+zig build -Doptimize=ReleaseSafe
 
 # Install zigmirror:
 sudo useradd --system --shell /usr/sbin/nologin zigmirror
@@ -85,7 +85,7 @@ Updating after initial installation:
 ```sh
 cd ~/zigmirror
 git pull
-sudo zig build upgrade -Doptimize=ReleaseSafe -fsys=systemd -Dupgrade-bin-user=zigmirror
+sudo zig build upgrade -Doptimize=ReleaseSafe -Dupgrade-bin-user=zigmirror
 ```
 
 # TODO

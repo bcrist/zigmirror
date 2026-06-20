@@ -14,6 +14,12 @@ pub fn build(b: *std.Build) void {
 
     const http_module = b.dependency("shittip", .{}).module("http");
 
+    var service_integration: []const u8 = "dummy";
+
+    if (b.systemIntegrationOption("systemd", .{ .default = true })) {
+        service_integration = "systemd";
+    }
+
     const imports: []const std.Build.Module.Import = &.{
         .{ .name = "Temp_Allocator", .module = b.dependency("Temp_Allocator", .{}).module("Temp_Allocator") },
         .{ .name = "fmt", .module = b.dependency("fmt_helper", .{}).module("fmt") },
@@ -26,7 +32,7 @@ pub fn build(b: *std.Build) void {
         .{
             .name = "service_integration",
             .module = b.createModule(.{
-                .root_source_file = b.path(if (b.systemIntegrationOption("systemd", .{})) "src/service_integration/systemd.zig" else "src/service_integration/dummy.zig"),
+                .root_source_file = b.path(b.fmt("src/service_integration/{s}.zig", .{ service_integration })),
                 .imports = &.{
                     .{ .name = "http", .module = http_module },
                 },
