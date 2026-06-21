@@ -23,7 +23,7 @@ pub fn main(init: std.process.Init) !void {
 
     try server.router("", .{
         http.routing.resource("style.css"),
-        .{ "/", headers.set_server_and_date, Module(@import("root.zig")) },
+        .{ "/", headers.set_server_and_date, Module(Root) },
         .{ "/stats", headers.set_server_and_date, Module(@import("stats.zig")) },
         .{ "/shutdown", Config.shutdown_check, service_integration.stopping, Caches.evict_all_mem, http.routing.shutdown },
         .{ "/index.json", headers.set_server_and_date, rate_limiter, Module(Index) },
@@ -153,6 +153,7 @@ const Context = struct {
         config: Config,
         cache: Caches,
         index: Index,
+        root: Root,
         rate_limiter: Rate_Limiter,
         server_stats: Server_Stats,
         downloads: Download_Permission,
@@ -167,6 +168,9 @@ const Context = struct {
             var index: Index = .init(gpa, &config);
             errdefer index.deinit();
 
+            var root: Root = try .init(io, gpa, &config);
+            errdefer root.deinit();
+
             var server_stats: Server_Stats = .init(io, config.upstream.default_connect_timeout_seconds * std.time.ms_per_s / 2);
 
             try Caches.load_fs_cache(&fs_cache, &server_stats, config.cache.fs.path, config.allow_devkit_artifacts);
@@ -178,6 +182,7 @@ const Context = struct {
                     .fs = fs_cache,
                 },
                 .index = index,
+                .root = root,
                 .rate_limiter = .init(io, gpa, config.request_rate_limit),
                 .server_stats = server_stats,
                 .downloads = .{
@@ -189,6 +194,7 @@ const Context = struct {
         }
 
         pub fn deinit(self: *@This()) void {
+            self.root.deinit();
             self.index.deinit();
             self.rate_limiter.deinit();
             self.cache.mem.deinit();
@@ -294,6 +300,10 @@ const Injector = dizzy.Injector(struct {
         return &ctx.context.index;
     }
 
+    pub fn inject_root_content(ctx: Context) Root {
+        return ctx.context.root;
+    }
+
     pub fn inject_request(ctx: Context) *http.Request {
         return ctx.request;
     }
@@ -340,6 +350,7 @@ const Artifact = @import("Artifact.zig");
 const Caches = @import("Caches.zig");
 const Cache = @import("Cache.zig");
 const Index = @import("Index.zig");
+const Root = @import("Root.zig");
 const Rate_Limiter = @import("Rate_Limiter.zig");
 const Config = @import("Config.zig");
 const headers = @import("headers.zig");

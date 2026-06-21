@@ -89,7 +89,7 @@ sudo zig build upgrade -Doptimize=ReleaseSafe -Dupgrade-bin-user=zigmirror
 ```
 
 # TODO
-* prerender & compress root route; serve as static resource
+* Tool for testing concurrent downloads, client disconnects, etc.
 * Track overall downstream/upstream transfer rate estimate
 * content range request support
 * Reduce arena usage in stats.zk rendering (implement lazy zkittle value accessor instead of intermediate []Cache_Entry list)
