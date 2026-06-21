@@ -77,8 +77,8 @@
                 <td class="left">https://\\hostname///zig-<span class="placeholder">$TARGET</span>-<span class="placeholder">$VERSION</span>-dev.<span class="placeholder">$DEPTH</span>+<span class="placeholder">$COMMIT</span>.<span class="placeholder">$EXT</span></td>
             </tr>
             <tr>
-                <td class="left">https://ziglang.org/builds/zig-<span class="placeholder">$TARGET</span>-<span class="placeholder">$VERSION</span>-dev.<span class="placeholder">$DEPTH</span>+<span class="placeholder">$COMMIT</span>.<span class="placeholder">$EXT</span><span class="placeholder">$EXT</span>.minisig</td>
-                <td class="left">https://\\hostname///zig-<span class="placeholder">$TARGET</span>-<span class="placeholder">$VERSION</span>.<span class="placeholder">$EXT</span>-dev.<span class="placeholder">$DEPTH</span>+<span class="placeholder">$COMMIT</span><span class="placeholder">$EXT</span>.minisig</td>
+                <td class="left">https://ziglang.org/builds/zig-<span class="placeholder">$TARGET</span>-<span class="placeholder">$VERSION</span>-dev.<span class="placeholder">$DEPTH</span>+<span class="placeholder">$COMMIT</span>.<span class="placeholder">$EXT</span>.minisig</td>
+                <td class="left">https://\\hostname///zig-<span class="placeholder">$TARGET</span>-<span class="placeholder">$VERSION</span>-dev.<span class="placeholder">$DEPTH</span>+<span class="placeholder">$COMMIT</span>.<span class="placeholder">$EXT</span>.minisig</td>
             </tr>
 
 \\allow_devkits?
