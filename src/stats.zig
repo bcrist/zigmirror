@@ -96,6 +96,7 @@ fn populate_cache_entries(io: std.Io, arena: std.mem.Allocator, state_entries: [
         var artifact_type: []const u8 = "";
         var filename: []const u8 = "";
         var bytes: ?usize = null;
+        var transfer_in_progress: bool = false;
         var hash: []const u8 = "";
         var eviction_score: ?u64 = null;
         var locked = false;
@@ -111,10 +112,21 @@ fn populate_cache_entries(io: std.Io, arena: std.mem.Allocator, state_entries: [
                 eviction_score = state.order_score(now);
             }
 
-            if (state.data) |data| {
-                bytes = data.len;
-            } else if (state.bytes) |b| {
-                bytes = b;
+            switch (state.data) {
+                .none => {
+                    if (state.bytes) |b| {
+                        bytes = b;
+                    }
+                },
+                .transfer => |transfer| {
+                    transfer_in_progress = true;
+                    if (locked and transfer.bytes_available.load(.acquire) > 0) {
+                        bytes = transfer.data.len;
+                    }
+                },
+                .owned => |data| {
+                    bytes = data.len;
+                },
             }
 
             if (state.hash) |digest| {
@@ -138,6 +150,7 @@ fn populate_cache_entries(io: std.Io, arena: std.mem.Allocator, state_entries: [
             .artifact_type = artifact_type,
             .extension = if (artifact) |a| a.extension else null,
             .bytes = bytes,
+            .transfer_in_progress = transfer_in_progress,
             .hash = hash,
             .first_request_time = if (request_count > 0) first_time else null,
             .last_request_time = if (request_count > 0) last_time else null,
@@ -172,6 +185,7 @@ const Cache_Entry = struct {
     artifact_type: []const u8,
     extension: ?Artifact.Extension,
     bytes: ?usize,
+    transfer_in_progress: bool,
     hash: []const u8,
     request_count: ?usize,
     requests_per_day: ?f64,

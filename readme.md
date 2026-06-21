@@ -89,8 +89,7 @@ sudo zig build upgrade -Doptimize=ReleaseSafe -Dupgrade-bin-user=zigmirror
 ```
 
 # TODO
+* prerender & compress root route; serve as static resource
 * Track overall downstream/upstream transfer rate estimate
 * content range request support
-* index.json route
 * Reduce arena usage in stats.zk rendering (implement lazy zkittle value accessor instead of intermediate []Cache_Entry list)
-* When upstream downloads are in progress, make upstream and downstream transfers fully concurrent (so multiple clients can stream data as it comes in and a slow client won't delay completion of the upstream transfer)

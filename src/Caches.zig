@@ -55,15 +55,15 @@ pub fn periodic_cleanup(cache: *Caches, server_stats: *Server_Stats, config: *co
     };
 }
 
-pub fn cleanup(cache: *Caches, server_stats: *Server_Stats, config: *const Config) !void {
-    try cache.cleanup_mem(server_stats, config);
-    try cache.cleanup_fs(server_stats, config);
+pub fn cleanup(cache: *Caches, server_stats: *Server_Stats, config: *const Config) void {
+    cache.cleanup_mem(server_stats, config);
+    cache.cleanup_fs(server_stats, config);
 }
 
-fn cleanup_mem(cache: *Caches, server_stats: *Server_Stats, config: *const Config) !void {
+fn cleanup_mem(cache: *Caches, server_stats: *Server_Stats, config: *const Config) void {
     for (0..100) |_| {
         if (cache.mem.total_bytes.load(.monotonic) <= config.cache.mem.max_bytes) return;
-        try cache.maybe_evict_from_mem_cache(server_stats, config);
+        cache.maybe_evict_from_mem_cache(server_stats, config);
     } else {
         log.warn("Memory cache oversize ({d} / {d}) after 100 attempts to evict from it", .{
             fmt.bytes(cache.mem.total_bytes.load(.monotonic)),
@@ -72,10 +72,10 @@ fn cleanup_mem(cache: *Caches, server_stats: *Server_Stats, config: *const Confi
     }
 }
 
-fn cleanup_fs(cache: *Caches, server_stats: *Server_Stats, config: *const Config) !void {
+fn cleanup_fs(cache: *Caches, server_stats: *Server_Stats, config: *const Config) void {
     for (0..100) |_| {
         if (cache.fs.total_bytes.load(.monotonic) <= config.cache.fs.max_bytes) return;
-        try maybe_evict_from_fs_cache(&cache.fs, server_stats, config.cache.fs.path);
+        maybe_evict_from_fs_cache(&cache.fs, server_stats, config.cache.fs.path);
     } else {
         log.warn("FS cache oversize ({d} / {d}) after 100 attempts to evict from it", .{
             fmt.bytes(cache.fs.total_bytes.load(.monotonic)),
@@ -84,47 +84,54 @@ fn cleanup_fs(cache: *Caches, server_stats: *Server_Stats, config: *const Config
     }
 }
 
-pub fn maybe_evict_from_mem_cache(cache: *Caches, server_stats: *Server_Stats, config: *const Config) !void {
+pub fn maybe_evict_from_mem_cache(cache: *Caches, server_stats: *Server_Stats, config: *const Config) void {
     log.debug("maybe_evict_from_mem_cache", .{});
-    if (try cache.mem.get_worst()) |mem_ref| {
-        try cache.evict_from_mem_cache(server_stats, config, mem_ref);
-    }
+    const mem_ref = cache.mem.get_worst() catch |err| switch (err) {
+        error.Canceled => return,
+    } orelse return;
+    cache.evict_from_mem_cache(server_stats, config, mem_ref) catch |err| switch (err) {
+        error.Canceled => return,
+        else => log.warn("Error while trying to evict {f} from memory cache: {t}", .{ mem_ref.ptr.artifact.?, err }),
+    };
 }
 
 fn evict_from_mem_cache(cache: *Caches, server_stats: *Server_Stats, config: *const Config, mem_ref: Cache.Entry.Ref) !void {
     const artifact_to_remove = mem_ref.ptr.artifact.?;
     log.debug("evict_from_mem_cache {f}", .{ artifact_to_remove });
 
-    if (mem_ref.ptr.data) |data| {
-        errdefer mem_ref.unlock();
+    switch (mem_ref.ptr.data) {
+        .owned => |data| {
+            errdefer mem_ref.unlock();
 
-        var add_to_fs_cache = mem_ref.ptr.requests.count.load(.monotonic) >= config.cache.fs.min_requests;
+            var add_to_fs_cache = mem_ref.ptr.requests.count.load(.monotonic) >= config.cache.fs.min_requests;
 
-        if (add_to_fs_cache) {
-            const active_entries = try cache.fs.active_entries();
-            if (active_entries >= cache.fs.entries.len or cache.fs.total_bytes.load(.monotonic) + data.len > config.cache.fs.max_bytes) {
-                var fs_artifact: ?Artifact = null;
-                if (try cache.fs.get_worst()) |fs_ref| {
-                    defer fs_ref.unlock();
+            if (add_to_fs_cache) {
+                const active_entries = try cache.fs.active_entries();
+                if (active_entries >= cache.fs.entries.len or cache.fs.total_bytes.load(.monotonic) + data.len > config.cache.fs.max_bytes) {
+                    var fs_artifact: ?Artifact = null;
+                    if (try cache.fs.get_worst()) |fs_ref| {
+                        defer fs_ref.unlock();
 
-                    const now = tempora.now_utc(cache.mem.io).timestamp_ms();
+                        const now = tempora.now_utc(cache.mem.io).timestamp_ms();
 
-                    if (mem_ref.ptr.order(fs_ref.ptr, now) != .lt) {
-                        // worst item in fs cache is better than the item we're evicting from mem cache, so don't add it to the fs cache
-                        add_to_fs_cache = false;
-                    } else {
-                        fs_artifact = fs_ref.ptr.artifact.?;
+                        if (mem_ref.ptr.order(fs_ref.ptr, now) != .lt) {
+                            // worst item in fs cache is better than the item we're evicting from mem cache, so don't add it to the fs cache
+                            add_to_fs_cache = false;
+                        } else {
+                            fs_artifact = fs_ref.ptr.artifact.?;
+                        }
+                    }
+                    if (fs_artifact) |artifact| {
+                        try evict_from_fs_cache(&cache.fs, server_stats, artifact, config.cache.fs.path);
                     }
                 }
-                if (fs_artifact) |artifact| {
-                    try evict_from_fs_cache(&cache.fs, server_stats, artifact, config.cache.fs.path);
-                }
             }
-        }
 
-        if (add_to_fs_cache) {
-            try cache.add_artifact_to_fs_cache(server_stats, mem_ref, config.cache.fs.path);
-        }
+            if (add_to_fs_cache) {
+                try cache.add_artifact_to_fs_cache(server_stats, mem_ref, config.cache.fs.path);
+            }
+        },
+        else => {},
     }
 
     mem_ref.unlock();
@@ -135,18 +142,18 @@ fn evict_from_mem_cache(cache: *Caches, server_stats: *Server_Stats, config: *co
         log.info("Evicted {f} from mem cache", .{ artifact_to_remove });
     }
 
-    try cache.cleanup_fs(server_stats, config);
+    cache.cleanup_fs(server_stats, config);
 }
 
 fn add_artifact_to_fs_cache(cache: *Caches, server_stats: *Server_Stats, mem_ref: Cache.Entry.Ref, cache_path: []const u8) !void {
     const mem_artifact = mem_ref.ptr.artifact.?;
-    const data = mem_ref.ptr.data.?;
+    const data = mem_ref.ptr.data.owned;
 
     log.debug("add_artifact_to_fs_cache {f}", .{ mem_artifact });
 
     const fs_ref: Cache.Entry.Ref = for (0..100) |_| {
         if (try cache.fs.get_or_add(mem_artifact)) |ref| break ref;
-        try maybe_evict_from_fs_cache(&cache.fs, server_stats, cache_path);
+        maybe_evict_from_fs_cache(&cache.fs, server_stats, cache_path);
     } else {
         log.warn("Failed to add {f} to fs cache: could not find free slot", .{ mem_artifact });
         return;
@@ -167,6 +174,9 @@ fn add_artifact_to_fs_cache(cache: *Caches, server_stats: *Server_Stats, mem_ref
     cache_dir.writeFile(cache.fs.io, .{
         .sub_path = filename,
         .data = data,
+        .flags = .{
+            .lock = .exclusive,
+        },
     }) catch |err| switch (err) {
         error.Canceled => return error.Canceled,
         else => |e| {
@@ -184,14 +194,21 @@ fn add_artifact_to_fs_cache(cache: *Caches, server_stats: *Server_Stats, mem_ref
     log.info("Added {f} to fs cache", .{ mem_artifact });
 }
 
-pub fn maybe_evict_from_fs_cache(fs_cache: *Cache, server_stats: *Server_Stats, cache_path: []const u8) !void {
+pub fn maybe_evict_from_fs_cache(fs_cache: *Cache, server_stats: *Server_Stats, cache_path: []const u8) void {
     log.debug("maybe_evict_from_mem_cache", .{});
-    const artifact_to_remove: Artifact = if (try fs_cache.get_worst()) |ref| artifact_to_remove: {
+    const maybe_ref = fs_cache.get_worst() catch |err| switch (err) {
+        error.Canceled => return,
+    };
+
+    const artifact_to_remove: Artifact = if (maybe_ref) |ref| artifact_to_remove: {
         defer ref.unlock();
         break :artifact_to_remove ref.ptr.artifact.?;
     } else return;
 
-    try evict_from_fs_cache(fs_cache, server_stats, artifact_to_remove, cache_path);
+    evict_from_fs_cache(fs_cache, server_stats, artifact_to_remove, cache_path) catch |err| switch (err) {
+        error.Canceled => return,
+        else => log.warn("Error while trying to evict {f} from fs cache: {t}", .{ artifact_to_remove, err }),
+    };
 }
 
 pub fn evict_from_fs_cache(fs_cache: *Cache, server_stats: *Server_Stats, artifact: Artifact, cache_path: []const u8) !void {
@@ -358,7 +375,7 @@ pub fn load_fs_cache(fs_cache: *Cache, server_stats: *Server_Stats, cache_path: 
 
             const fs_ref: Cache.Entry.Ref = for (0..100) |_| {
                 if (try fs_cache.get_or_add(artifact)) |ref| break ref;
-                try maybe_evict_from_fs_cache(fs_cache, server_stats, cache_path);
+                maybe_evict_from_fs_cache(fs_cache, server_stats, cache_path);
             } else {
                 return error.FsCacheInitError;
             };

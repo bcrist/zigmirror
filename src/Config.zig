@@ -17,7 +17,7 @@ cache: struct {
         /// The maximum total size of in-memory artifact data before an entry will be pushed to the filesystem or evicted.
         max_bytes: usize = 1024 * 1024 * 1024,
 
-        /// A background job periodically looks to move entries from the memory cache to the filesystem or evict, even before the memory cache is not yet full.
+        /// A background job periodically looks to move entries from the memory cache to the filesystem or evict, even if the memory cache is not yet full.
         periodic_eviction: ?struct {
             /// Determines how often the in-memory cache will be scanned.
             interval_minutes: u32 = 5,
@@ -98,6 +98,13 @@ upstream: struct {
     /// But there are also cases where the not found status can become stale (e.g. if someone requests a new nightly/release just before it becomes available on ziglang.org).
     /// So "not found" entries are rechecked even while still in the cache, as long as the last upstream check was at least this long ago.
     recheck_not_found_after_seconds: u32 = 60,
+
+    /// ziglang.org/download/index.json will never be accessed more often than this.
+    min_recheck_index_interval_seconds: u32 = 5 * std.time.s_per_min,
+
+    /// ziglang.org/download/index.json will be accessed approximately this often if the UTC current date is 2 or more days after the master date from the currently cached index.
+    /// Note the index may be queried more often than this (up to min_recheck_index_interval_seconds) if nightly artifacts are being requested that are newer than the currently cached index's master version.
+    recheck_expired_index_interval_seconds: u32 = std.time.s_per_hour,
 } = .{},
 
 /// When set to true, rate limit information will be included in the /stats endpoint.

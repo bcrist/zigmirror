@@ -232,12 +232,12 @@ pub const Extension = enum {
         };
     }
 
-    pub fn content_type(self: Extension) []const u8 {
+    pub fn content_type(self: Extension) Content_Type {
         return switch (self) {
-            .txz => @as(Content_Type, .xz).to_string(),
-            .zip => @as(Content_Type, .zip).to_string(),
-            .txz_minisig => Content_Type.text_utf8.to_string(),
-            .zip_minisig => Content_Type.text_utf8.to_string(),
+            .txz => .xz,
+            .zip => .zip,
+            .txz_minisig => .text_utf8,
+            .zip_minisig => .text_utf8,
         };
     }
 };

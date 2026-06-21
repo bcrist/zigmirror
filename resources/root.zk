@@ -14,6 +14,12 @@
             </tr>
 
             <tr>
+                <td></td>
+                <td>Index</td>
+                <td class="left">https://ziglang.org/download/index.json</td>
+                <td class="left">https://\\hostname///index.json</td>
+            </tr>
+            <tr>
                 <td rowspan="6">Releases</td>
                 <td rowspan="2">Source</td>
                 <td class="left">https://ziglang.org/download/<span class="placeholder">$VERSION</span>/zig-<span class="placeholder">$VERSION</span>.tar.xz</td>

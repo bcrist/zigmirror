@@ -1,8 +1,10 @@
-/// Assumes ref is locked
-pub fn check_and_set_headers(request: *http.Request, entry: *Cache.Entry) !void {
+pub fn set_server_and_date(request: *http.Request) !void {
     try request.set_response_header("server", try request.fmt("zigmirror {f}", .{ build_options.version }));
     try request.try_set_date();
+}
 
+/// Assumes ref is locked
+pub fn check_and_set_headers(request: *http.Request, entry: *Cache.Entry) !void {
     const request_count = entry.requests.count.load(.monotonic);
     const first_request_ts = entry.requests.first_time.load(.monotonic);
     const last_modified_dt = if (request_count > 0) tempora.Date_Time.With_Offset.from_timestamp_ms(first_request_ts, null).dt else request.received_dt;
@@ -35,10 +37,14 @@ pub fn check_and_set_headers(request: *http.Request, entry: *Cache.Entry) !void 
         return error.NotModified;
     }
 
-    try request.set_response_header("content-type", entry.artifact.?.extension.content_type());
-    try request.set_response_header("content-disposition", http.Content_Disposition.to_string(.attachment));
-    try request.set_response_header("cache-control", "max-age=31536000, immutable, public");
-    try request.set_response_header("last-modified", try request.fmt_http_date(last_modified_dt));
+    try request.maybe_add_common_response_headers_comptime(.{
+        .content_disposition = .attachment,
+        .cache_control = "max-age=31536000, immutable, public",
+    });
+    try request.maybe_add_common_response_headers(.{
+        .content_type = entry.artifact.?.extension.content_type(),
+        .last_modified_utc = last_modified_dt,
+    });
     if (entry.hash) |hash| {
         try request.set_response_header("etag", try request.fmt("\"{x}\"", .{ hash }));
     }

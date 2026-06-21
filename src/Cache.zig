@@ -27,8 +27,12 @@ pub fn deinit(self: *Cache) void {
     self.lookup.deinit(self.gpa);
 
     for (self.entries) |entry| {
-        if (entry.data) |data| {
-            self.gpa.free(data);
+        switch (entry.data) {
+            .none => {},
+            .transfer => {},
+            .owned => |data| {
+                self.gpa.free(data);
+            },
         }
     }
 
@@ -86,7 +90,7 @@ pub fn get_or_add(self: *Cache, artifact: Artifact) !?Entry.Ref {
             self.entries[locked_index].artifact = artifact;
             self.entries[locked_index].bytes = null;
             self.entries[locked_index].hash = null;
-            self.entries[locked_index].data = null;
+            self.entries[locked_index].data = .none;
             self.entries[locked_index].requests = .init;
             return .init(self.io, &self.entries[locked_index], .exclusive);
         }
@@ -147,9 +151,13 @@ pub fn remove_lookup(self: *Cache, artifact: Artifact) ?usize {
 }
 
 fn reset_index(self: *Cache, index: usize, entry: *Entry) void {
-    if (entry.data) |data| {
-        self.gpa.free(data);
-        entry.data = null;
+    switch (entry.data) {
+        .none => {},
+        .transfer => unreachable,
+        .owned => |data| {
+            self.gpa.free(data);
+            entry.data = .none;
+        },
     }
 
     if (entry.bytes) |bytes| {
@@ -165,7 +173,7 @@ fn reset_index(self: *Cache, index: usize, entry: *Entry) void {
 }
 
 // Call Entry.Ref.unlock when finished
-pub fn get_worst(self: *Cache) !?Entry.Ref {
+pub fn get_worst(self: *Cache) error{Canceled}!?Entry.Ref {
     const now = tempora.now_utc(self.io).timestamp_ms();
 
     var maybe_worst_index: ?usize = null;
@@ -175,6 +183,7 @@ pub fn get_worst(self: *Cache) !?Entry.Ref {
         defer entry.unlock_shared(self.io);
 
         if (entry.artifact == null) continue;
+        if (entry.data == .transfer) continue;
 
         if (maybe_worst_index) |_| {
             if (entry.order(&worst_entry, now) == .gt) {
@@ -199,7 +208,11 @@ pub const Entry = struct {
     artifact: ?Artifact,
     bytes: ?u32,
     hash: ?[std.crypto.hash.sha2.Sha256.digest_length]u8,
-    data: ?[]const u8,
+    data: union (enum) {
+        none,
+        transfer: *Upstream_Transfer,
+        owned: []const u8,
+    },
     requests: struct {
         first_time: std.atomic.Value(i64),
         last_time: std.atomic.Value(i64),
@@ -253,7 +266,7 @@ pub const Entry = struct {
         .artifact = null,
         .bytes = null,
         .hash = null,
-        .data = null,
+        .data = .none,
         .requests = .init,
     };
 
@@ -306,7 +319,7 @@ pub const Entry = struct {
 
     /// smaller is better (entry is more important to keep in cache)
     pub fn order_score(self: *Entry, now: i64) u64 {
-        // N.B. the memory pointed to by self.data.? may be freed/reused concurrently; do not access it!
+        // N.B. the memory pointed to by self.data.owned may be freed/reused concurrently; do not access it!
 
         const first = self.requests.first_time.load(.monotonic);
         const last = self.requests.last_time.load(.monotonic);
@@ -315,7 +328,7 @@ pub const Entry = struct {
         const time_in_cache: u64 = if (now > first) std.math.cast(u64, now -% first) orelse 0 else 0;
         const time_since_last: u64 = if (now > last) std.math.cast(u64, now -% last) orelse 0 else 0;
         const dev_penalty: u64 = if (self.artifact != null and self.artifact.?.pre != null) 60_000 else 1000;
-        const not_found_penalty: u64 = if (self.bytes == null and self.data == null) 1_000_000 else 0;
+        const not_found_penalty: u64 = if (self.bytes == null and self.data == .none) 1_000_000 else 0;
 
         const numer = time_in_cache + time_since_last + dev_penalty + not_found_penalty;
         const denom = if (requests > 1) requests + 10 else 1;
@@ -324,7 +337,7 @@ pub const Entry = struct {
     }
 
     pub fn order(self: *Entry, other: *Entry, now: i64) std.math.Order {
-        // N.B. the memory pointed to by self.data.? and other.data.? may be freed/reused concurrently; do not access it!
+        // N.B. the memory pointed to by self.data.owned and other.data.owned may be freed/reused concurrently; do not access it!
 
         const self_score = self.order_score(now);
         const other_score = other.order_score(now);
@@ -378,6 +391,7 @@ const Cache = @This();
 const locking_log = std.log.scoped(.locking);
 const log = std.log.scoped(.zigmirror);
 
+const Upstream_Transfer = @import("Upstream_Transfer.zig");
 const Artifact = @import("Artifact.zig");
 const tempora = @import("tempora");
 const std = @import("std");

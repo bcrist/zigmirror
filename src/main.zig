@@ -23,14 +23,15 @@ pub fn main(init: std.process.Init) !void {
 
     try server.router("", .{
         http.routing.resource("style.css"),
-        .{ "/", Module(@import("root.zig")) },
-        .{ "/stats", Module(@import("stats.zig")) },
+        .{ "/", headers.set_server_and_date, Module(@import("root.zig")) },
+        .{ "/stats", headers.set_server_and_date, Module(@import("stats.zig")) },
         .{ "/shutdown", Config.shutdown_check, service_integration.stopping, Caches.evict_all_mem, http.routing.shutdown },
-        // .{ "/index.json", rate_limiter, Module(@import("index.zig")) },
-        .{ "/**", rate_limiter, Module(@import("handle_from_cache.zig")) },
+        .{ "/index.json", headers.set_server_and_date, rate_limiter, Module(Index) },
+        .{ "/**", headers.set_server_and_date, rate_limiter, Module(@import("handle_from_cache.zig")) },
     });
 
     try server.register("upstream", Module(@import("download_and_add_to_cache.zig")));
+    try server.register("regenerate_index", Index.lock_and_regenerate);
 
     loop.start();
     defer loop.finish_running();
@@ -63,8 +64,6 @@ pub fn main(init: std.process.Init) !void {
             config,
         });
     }
-
-    // TODO periodic download index.json from ziglang.org
 
     if (std.posix.Sigaction != void) {
         signal_handler_io = loop.io;
@@ -153,6 +152,7 @@ const Context = struct {
     context: *struct {
         config: Config,
         cache: Caches,
+        index: Index,
         rate_limiter: Rate_Limiter,
         server_stats: Server_Stats,
         downloads: Download_Permission,
@@ -164,6 +164,9 @@ const Context = struct {
             var fs_cache: Cache = try .init(io, gpa, config.cache.fs.max_entries);
             errdefer fs_cache.deinit();
 
+            var index: Index = .init(gpa, &config);
+            errdefer index.deinit();
+
             var server_stats: Server_Stats = .init(io, config.upstream.default_connect_timeout_seconds * std.time.ms_per_s / 2);
 
             try Caches.load_fs_cache(&fs_cache, &server_stats, config.cache.fs.path, config.allow_devkit_artifacts);
@@ -174,6 +177,7 @@ const Context = struct {
                     .mem = mem_cache,
                     .fs = fs_cache,
                 },
+                .index = index,
                 .rate_limiter = .init(io, gpa, config.request_rate_limit),
                 .server_stats = server_stats,
                 .downloads = .{
@@ -185,6 +189,7 @@ const Context = struct {
         }
 
         pub fn deinit(self: *@This()) void {
+            self.index.deinit();
             self.rate_limiter.deinit();
             self.cache.mem.deinit();
             self.cache.fs.deinit();
@@ -285,6 +290,10 @@ const Injector = dizzy.Injector(struct {
         return &ctx.context.server_stats;
     }
 
+    pub fn inject_index(ctx: Context) *Index {
+        return &ctx.context.index;
+    }
+
     pub fn inject_request(ctx: Context) *http.Request {
         return ctx.request;
     }
@@ -297,6 +306,10 @@ const Injector = dizzy.Injector(struct {
     pub fn inject_temp_allocator(ctx: Context) error{InsufficientResources}!*Temp_Allocator {
         try ctx.request.replace_arena();
         return &ctx.request.internal.ta_pool.allocators[ctx.request.internal.ta_pool.index.?];
+    }
+
+    pub fn inject_io(ctx: Context) std.Io {
+        return ctx.request.io;
     }
 
     pub fn inject_loop(ctx: Context) *http.Loop {
@@ -326,8 +339,10 @@ const Server_Stats = @import("Server_Stats.zig");
 const Artifact = @import("Artifact.zig");
 const Caches = @import("Caches.zig");
 const Cache = @import("Cache.zig");
+const Index = @import("Index.zig");
 const Rate_Limiter = @import("Rate_Limiter.zig");
 const Config = @import("Config.zig");
+const headers = @import("headers.zig");
 const service_integration = @import("service_integration");
 const build_options = @import("build_options");
 const Temp_Allocator = @import("Temp_Allocator");
