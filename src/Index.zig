@@ -39,7 +39,7 @@ pub fn get(self: *Index, request: *http.Request, server_stats: *Server_Stats, co
     defer self.lock.unlock(request.io);
 
     if (self.is_outdated(tempora.now_utc(request.io).dt)) {
-        self.regenerate(request.io, server_stats, config);
+        try self.locked_regenerate(request.io, server_stats, config);
     }
     
     if (self.current) |content| {
@@ -47,24 +47,39 @@ pub fn get(self: *Index, request: *http.Request, server_stats: *Server_Stats, co
     } else return error.BadGateway;
 }
 
-pub fn lock_and_regenerate(self: *Index, io: std.Io, server_stats: *Server_Stats, config: *const Config, _: Download_Permission.Upstream) !void {
+pub fn maybe_regenerate(self: *Index, io: std.Io, cache: *Caches, server_stats: *Server_Stats, config: *const Config, _: Download_Permission.Upstream) error{Canceled}!void {
     try self.lock.lock(io);
     defer self.lock.unlock(io);
 
-    self.regenerate(io, server_stats, config);
+    if (self.is_outdated(tempora.now_utc(io).dt)) {
+        try self.locked_regenerate(io, server_stats, config);
+
+        _ = cache; // TODO
+    }
+}
+
+pub fn regenerate(self: *Index, io: std.Io, server_stats: *Server_Stats, config: *const Config, _: Download_Permission.Upstream) error{Canceled}!void {
+    try self.lock.lock(io);
+    defer self.lock.unlock(io);
+
+    try self.locked_regenerate(io, server_stats, config);
 }
 
 // assumes lock is held (either shared or exclusively) before calling
-fn regenerate(self: *Index, io: std.Io, server_stats: *Server_Stats, config: *const Config) void {
+fn locked_regenerate(self: *Index, io: std.Io, server_stats: *Server_Stats, config: *const Config) error{Canceled}!void {
     const now = tempora.now_utc(io).dt;
     if (now.is_before(self.last_checked_upstream) or now.duration_since(self.last_checked_upstream).toSeconds() < self.min_recheck_index_interval_seconds) return;
+    log.info("Beginning index.json refresh", .{});
     self.last_checked_upstream = now;
-    const content = Content.generate(io, self.gpa, server_stats, config) catch |err| {
-        log.err("Failed to regenerate index.json: {t}", .{ err });
-        if (@errorReturnTrace()) |ert| {
-            std.debug.dumpErrorReturnTrace(ert);
+    const content = Content.generate(io, self.gpa, server_stats, config) catch |err| switch (err) {
+        error.Canceled => |e| return e,
+        else => {
+            log.err("Failed to regenerate index.json: {t}", .{ err });
+            if (@errorReturnTrace()) |ert| {
+                std.debug.dumpErrorReturnTrace(ert);
+            }
+            return;
         }
-        return;
     };
     if (self.current) |*current| {
         current.deinit(self.gpa);
@@ -108,7 +123,7 @@ const Content = struct {
         var transfer: Upstream_Transfer = .init(io);
         defer transfer.deinit(gpa);
 
-        transfer.execute(io, "/download/index.json", null, server_stats, config, gpa);
+        try transfer.execute(io, "/download/index.json", null, server_stats, config, gpa);
 
         switch (transfer.status.raw) {
             .in_progress => unreachable,
@@ -227,6 +242,7 @@ const log = std.log.scoped(.zigmirror);
 
 const Upstream_Transfer = @import("Upstream_Transfer.zig");
 const Download_Permission = @import("Download_Permission.zig");
+const Caches = @import("Caches.zig");
 const Artifact = @import("Artifact.zig");
 const Server_Stats = @import("Server_Stats.zig");
 const Config = @import("Config.zig");

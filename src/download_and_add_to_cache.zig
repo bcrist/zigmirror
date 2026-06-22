@@ -7,18 +7,25 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
         => {
             const upstream_path = try artifact.upstream_path(arena);
             var transfer: Upstream_Transfer = undefined;
-            var upstream_future: ?std.Io.Future(void) = null;
+            var upstream_future: ?std.Io.Future(error{Canceled}!void) = null;
             if (try init_upstream_transfer(&transfer, request.io, artifact, cache, server_stats, config)) {
                 upstream_future = try std.Io.concurrent(request.io, upstream, .{ &transfer, request, artifact, upstream_path, cache, server_stats, config });
             }
-            defer if (upstream_future) |*future| future.await(request.io);
 
             downstream(request, artifact, cache, server_stats) catch |err2| switch (err2) {
                 // Normally a failed upstream transfer is handled in downstream(), but there is a race condition
                 // where another request owns the transfer and cleans up the cache entry before we can grab the shared lock
-                error.NotInCache => return error.GatewayTimeout,
-                else => |e| return e,
+                error.NotInCache => {
+                    if (upstream_future) |*f| try f.await(request.io);
+                    return error.GatewayTimeout;
+                },
+                else => |e| {
+                    if (upstream_future) |*f| try f.await(request.io);
+                    return e;
+                },
             };
+
+            if (upstream_future) |*f| try f.await(request.io);
         }, 
         else => |e| return e,
     };
@@ -55,7 +62,7 @@ fn downstream(request: *http.Request, artifact: Artifact, cache: *Caches, server
                     } else {
                         const timeout: std.Io.Timeout = .{ .duration = .{ .raw = .fromSeconds(1), .clock = .awake } };
                         std.Io.futexWaitTimeout(request.io, u32, &transfer.bytes_available.raw, available_bytes, timeout) catch |err| switch (err) {
-                            error.Canceled => return err,
+                            error.Canceled => |e| return e,
                         };
                     }
                 }
@@ -83,12 +90,12 @@ fn downstream(request: *http.Request, artifact: Artifact, cache: *Caches, server
     } else return error.NotInCache;
 }
 
-fn upstream(transfer: *Upstream_Transfer, request: *http.Request, artifact: Artifact, upstream_path: []const u8, cache: *Caches, server_stats: *Server_Stats, config: *const Config) void {
+fn upstream(transfer: *Upstream_Transfer, request: *http.Request, artifact: Artifact, upstream_path: []const u8, cache: *Caches, server_stats: *Server_Stats, config: *const Config) error{Canceled}!void {
     log.info("{f}: Beginning upstream transfer {x} for {f}", .{ request.cid, transfer.id, artifact });
-    transfer.execute(request.io, upstream_path, artifact.extension, server_stats, config, cache.mem.gpa);
+    try transfer.execute(request.io, upstream_path, artifact.extension, server_stats, config, cache.mem.gpa);
 
     const maybe_ref = cache.mem.get(artifact, .exclusive) catch |err| switch (err) {
-        error.Canceled => return,
+        error.Canceled => |e| return e,
     };
     if (maybe_ref) |ref| {
         defer ref.unlock();
@@ -118,13 +125,13 @@ fn upstream(transfer: *Upstream_Transfer, request: *http.Request, artifact: Arti
         }
     }
 
-    cache.cleanup(server_stats, config);
+    try cache.cleanup(server_stats, config);
 }
 
 fn init_upstream_transfer(transfer: *Upstream_Transfer, io: std.Io, artifact: Artifact, cache: *Caches, server_stats: *Server_Stats, config: *const Config) !bool {
     const mem_ref: Cache.Entry.Ref = for (0..100) |_| {
         if (try cache.mem.get_or_add(artifact)) |ref| break ref;
-        cache.maybe_evict_from_mem_cache(server_stats, config);
+        try cache.maybe_evict_from_mem_cache(server_stats, config);
     } else {
         log.warn("Failed to add {f} to mem cache: could not find free slot", .{ artifact });
         return error.ServiceUnavailable;

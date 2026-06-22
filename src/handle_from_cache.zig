@@ -43,7 +43,7 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
             }
 
             const cache_dir = std.Io.Dir.cwd().createDirPathOpen(request.io, config.cache.fs.path, .{}) catch |err| switch (err) {
-                error.Canceled => return error.Canceled,
+                error.Canceled => |e| return e,
                 else => |e| {
                     log.err("{f}: Failed to create/open fs cache directory: {t}", .{
                         request.cid,
@@ -57,7 +57,7 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
 
             const filename = try request.fmt("{f}", .{ artifact });
             const cache_file = cache_dir.openFile(request.io, filename, .{ .lock = .shared }) catch |err| switch (err) {
-                error.Canceled => return error.Canceled,
+                error.Canceled => |e| return e,
                 else => |e| {
                     log.err("{f}: Failed to open file \"{f}\" from fs cache: {t}", .{
                         request.cid,
@@ -73,7 +73,7 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
             var file_reader = cache_file.reader(request.io, &.{});
 
             const file_size = file_reader.getSize() catch |err| switch (err) {
-                error.Canceled => return error.Canceled,
+                error.Canceled => |e| return e,
                 else => |e| {
                     log.err("{f}: Failed to retrieve file size for \"{f}\": {t}", .{
                         request.cid,

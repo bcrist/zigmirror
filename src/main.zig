@@ -31,7 +31,7 @@ pub fn main(init: std.process.Init) !void {
     });
 
     try server.register("upstream", Module(@import("download_and_add_to_cache.zig")));
-    try server.register("regenerate_index", Index.lock_and_regenerate);
+    try server.register("regenerate_index", Index.regenerate);
 
     loop.start();
     defer loop.finish_running();
@@ -61,7 +61,18 @@ pub fn main(init: std.process.Init) !void {
             loop.io,
             &server.injector_context.cache,
             &server.injector_context.server_stats,
-            config,
+            &config,
+        });
+    }
+
+    if (config.upstream.recheck_expired_index_interval_seconds > 0) {
+        try server.tasks.group.concurrent(loop.io, recheck_index_task, .{
+            loop.io,
+            &server.injector_context.index,
+            &server.injector_context.cache,
+            &server.injector_context.downloads,
+            &server.injector_context.server_stats,
+            &config,
         });
     }
 
@@ -71,7 +82,7 @@ pub fn main(init: std.process.Init) !void {
             &loop,
             &server.injector_context.cache,
             &server.injector_context.server_stats,
-            config,
+            &config,
         });
         
         const action: std.posix.Sigaction = .{
@@ -100,14 +111,40 @@ fn rate_limit_cleanup_task(io: std.Io, period_seconds: i64, rate_limit: *Rate_Li
     }
 }
 
-fn mem_cache_cleanup_task(io: std.Io, cache: *Caches, server_stats: *Server_Stats, config: Config) error{Canceled}!void {
+fn mem_cache_cleanup_task(io: std.Io, cache: *Caches, server_stats: *Server_Stats, config: *const Config) error{Canceled}!void {
     while (true) {
         try io.sleep(.fromSeconds(config.cache.mem.periodic_eviction.?.interval_minutes * 60), .real);
-        try cache.periodic_cleanup(server_stats, &config);
+        try cache.periodic_cleanup(server_stats, config);
     }
 }
 
-fn signal_handler_shutdown_task(loop: *http.Loop, cache: *Caches, server_stats: *Server_Stats, config: Config) error{Canceled}!void {
+fn recheck_index_task(io: std.Io, index: *Index, cache: *Caches, downloads: *Download_Permission, server_stats: *Server_Stats, config: *const Config) error{Canceled}!void {
+    while (true) {
+        try io.sleep(.fromSeconds(config.upstream.recheck_expired_index_interval_seconds), .real);
+        try downloads.upstream_semaphore.wait(io);
+        defer {
+            downloads.upstream_semaphore.post(io);
+            if (comptime std.log.logEnabled(.debug, .locking)) {
+                locking_log.debug("Upstream download permission returned ({} available)", .{
+                    @atomicLoad(usize, &downloads.upstream_semaphore.permits, .seq_cst),
+                });
+            }
+        }
+        if (comptime std.log.logEnabled(.debug, .locking)) {
+            locking_log.debug("Upstream download permission acquired ({} available)", .{
+                @atomicLoad(usize, &downloads.upstream_semaphore.permits, .seq_cst),
+            });
+        }
+        index.maybe_regenerate(io, cache, server_stats, config, .{
+            .io = io,
+            .semaphore = &downloads.upstream_semaphore,
+        }) catch |err| switch (err) {
+            error.Canceled => |e| return e,
+        };
+    }
+}
+
+fn signal_handler_shutdown_task(loop: *http.Loop, cache: *Caches, server_stats: *Server_Stats, config: *const Config) error{Canceled}!void {
     try graceful_shutdown_latch.wait(loop.io);
     service_integration.stopping(loop);
     defer loop.stop();

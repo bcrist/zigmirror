@@ -65,8 +65,6 @@ max_wait_time_seconds: u32 = 15,
 /// Avoid setting this less than a few minutes, since users with slow connections may not be able to download a 20-100MB file in that amount of time.
 request_timeout_seconds: u32 = 60 * 10,
 
-request_rate_limit: ?Rate_Limiter.Config = .{},
-
 upstream: struct {
     /// If a requested artifact is not cached, but there are already this many open connections to ziglang.org, the request will be queued to wait until one or more upstream downloads complete.
     /// This ensures that once an upstream download starts, it should continue with some minimum acceptable bandwidth until it finishes, and that we won't contribute significantly to a DDoS volume amplification attack against ziglang.org.
@@ -107,6 +105,8 @@ upstream: struct {
     recheck_expired_index_interval_seconds: u32 = std.time.s_per_hour,
 } = .{},
 
+request_rate_limit: ?Rate_Limiter.Config = .{},
+
 /// When set to true, rate limit information will be included in the /stats endpoint.
 show_rate_limit_stats: bool = false,
 
@@ -117,8 +117,6 @@ allow_devkit_artifacts: bool = true,
 /// When set to true, the server can be gracefully shut down by sending a GET request to the /shutdown endpoint.
 /// Generally this should only be enabled for local testing.
 allow_shutdown: bool = false,
-
-// TODO index_json_refresh_interval_minutes: usize = 60,
 
 pub fn load(reader: *std.Io.File.Reader, arena: std.mem.Allocator, temp: std.mem.Allocator) !Config {
     var sx_reader = sx.reader(temp, &reader.interface);

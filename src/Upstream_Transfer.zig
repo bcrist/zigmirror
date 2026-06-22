@@ -29,7 +29,7 @@ pub fn deinit(self: *Upstream_Transfer, gpa: std.mem.Allocator) void {
     }
 }
 
-pub fn execute(self: *Upstream_Transfer, io: std.Io, upstream_path: []const u8, ext: ?Artifact.Extension, server_stats: *Server_Stats, config: *const Config, gpa: std.mem.Allocator) void {
+pub fn execute(self: *Upstream_Transfer, io: std.Io, upstream_path: []const u8, ext: ?Artifact.Extension, server_stats: *Server_Stats, config: *const Config, gpa: std.mem.Allocator) error{Canceled}!void {
     const request_started = tempora.now_utc(io).timestamp_ms();
 
     var query_string_buf: [256]u8 = undefined;
