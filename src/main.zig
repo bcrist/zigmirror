@@ -136,7 +136,7 @@ fn signal_handler_shutdown_task(loop: *http.Loop, cache: *Caches, server_stats: 
     try graceful_shutdown_latch.wait(loop.io);
     service_integration.stopping(loop);
     defer loop.stop();
-    try cache.evict_all_mem(server_stats, &config);
+    try cache.evict_all_mem(server_stats, config);
 }
 
 fn load_config(arena: std.mem.Allocator, gpa: std.mem.Allocator, io: std.Io, args: std.process.Args) !Config {
