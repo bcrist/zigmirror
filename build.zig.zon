@@ -21,8 +21,8 @@
             .hash = "fmt_helper-0.2.1-yH32_V5sAADF1sx7LkROCBNt2joIdTU_5eenKsaHYVrr",
         },
         .shittip = .{
-            .url = "git+https://codeberg.org/bcrist/shittip?ref=zig-master#fa9bffd17d5f210af5dd1095d14193fd5df4097a",
-            .hash = "shittip-0.4.6-l5sQcRAEAgAPG_GRwjj_YKEMUECSJ_bBwrfWAg7pcnR7",
+            .url = "git+https://codeberg.org/bcrist/shittip?ref=zig-master#84f4da3cb1ed8916702fb3719d66a69ad971249c",
+            .hash = "shittip-0.4.7-l5sQcfcGAgAfwZRWqIpxhiNba31TdIGulzkRV7r850y_",
         },
         .sx = .{
             .url = "git+https://codeberg.org/bcrist/zig-sx?ref=zig-master#7d70252b6a804bd1bf014aed07a16199354253bb",

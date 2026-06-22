@@ -67,7 +67,7 @@ pub fn main(init: std.process.Init) !void {
 
     if (config.upstream.recheck_expired_index_interval_seconds > 0) {
         try server.tasks.group.concurrent(loop.io, recheck_index_task, .{
-            loop.io,
+            &loop,
             &server.injector_context.index,
             &server.injector_context.cache,
             &server.injector_context.downloads,
@@ -118,27 +118,15 @@ fn mem_cache_cleanup_task(io: std.Io, cache: *Caches, server_stats: *Server_Stat
     }
 }
 
-fn recheck_index_task(io: std.Io, index: *Index, cache: *Caches, downloads: *Download_Permission, server_stats: *Server_Stats, config: *const Config) error{Canceled}!void {
+fn recheck_index_task(loop: *http.Loop, index: *Index, cache: *Caches, downloads: *Download_Permission, server_stats: *Server_Stats, config: *const Config) error{Canceled}!void {
     while (true) {
-        try io.sleep(.fromSeconds(config.upstream.recheck_expired_index_interval_seconds), .real);
-        try downloads.upstream_semaphore.wait(io);
-        defer {
-            downloads.upstream_semaphore.post(io);
-            if (comptime std.log.logEnabled(.debug, .locking)) {
-                locking_log.debug("Upstream download permission returned ({} available)", .{
-                    @atomicLoad(usize, &downloads.upstream_semaphore.permits, .seq_cst),
-                });
-            }
-        }
-        if (comptime std.log.logEnabled(.debug, .locking)) {
-            locking_log.debug("Upstream download permission acquired ({} available)", .{
-                @atomicLoad(usize, &downloads.upstream_semaphore.permits, .seq_cst),
-            });
-        }
-        index.maybe_regenerate(io, cache, server_stats, config, .{
-            .io = io,
-            .semaphore = &downloads.upstream_semaphore,
-        }) catch |err| switch (err) {
+        try loop.io.sleep(.fromSeconds(config.upstream.recheck_expired_index_interval_seconds), .real);
+        const permission = Download_Permission.Upstream.init(downloads, config) catch |err| switch (err) {
+            error.Canceled => |e| return e,
+            error.InsufficientResources => continue,
+        };
+        defer permission.deinit();
+        index.maybe_regenerate(loop, cache, server_stats, config, downloads, permission) catch |err| switch (err) {
             error.Canceled => |e| return e,
         };
     }
@@ -223,6 +211,7 @@ const Context = struct {
                 .rate_limiter = .init(io, gpa, config.request_rate_limit),
                 .server_stats = server_stats,
                 .downloads = .{
+                    .io = io,
                     .upstream_semaphore = .{ .permits = config.upstream.max_connections },
                     .downstream_semaphore = .{ .permits = config.max_concurrent_downloads },
                     .overload_semaphore = .{ .permits = config.max_concurrent_connections },
@@ -242,69 +231,19 @@ const Context = struct {
 
 const Injector = dizzy.Injector(struct {
     pub fn inject_download_permission_upstream(ctx: Context) !Download_Permission.Upstream {
-        ctx.context.downloads.upstream_semaphore.waitTimeout(ctx.request.io, .{ .duration = .{
-            .clock = .awake,
-            .raw = .fromSeconds(ctx.context.config.upstream.max_wait_time_seconds),
-        }}) catch |err| switch (err) {
-            error.Timeout => return error.InsufficientResources,
-            else => |e| return e,
-        };
-        if (comptime std.log.logEnabled(.debug, .locking)) {
-            locking_log.debug("Upstream download permission acquired ({} available)", .{
-                @atomicLoad(usize, &ctx.context.downloads.upstream_semaphore.permits, .seq_cst),
-            });
-        }
-        return .{
-            .io = ctx.request.io,
-            .semaphore = &ctx.context.downloads.upstream_semaphore,
-        };
+        return .init(&ctx.context.downloads, &ctx.context.config);
     }
 
     pub fn inject_download_permission_upstream_cleanup(d: Download_Permission.Upstream) void {
-        d.semaphore.post(d.io);
-        if (comptime std.log.logEnabled(.debug, .locking)) {
-            locking_log.debug("Upstream download permission returned ({} available)", .{
-                @atomicLoad(usize, &d.semaphore.permits, .seq_cst),
-            });
-        }
+        d.deinit();
     }
 
     pub fn inject_download_permission_downstream(ctx: Context) !Download_Permission.Downstream {
-        ctx.context.downloads.overload_semaphore.waitTimeout(ctx.request.io, .none) catch |err| switch (err) {
-            error.Timeout => return error.InsufficientResources,
-            else => |e| return e,
-        };
-        errdefer ctx.context.downloads.overload_semaphore.post(ctx.request.io);
-
-        ctx.context.downloads.downstream_semaphore.waitTimeout(ctx.request.io, .{ .duration = .{
-            .clock = .awake,
-            .raw = .fromSeconds(ctx.context.config.max_wait_time_seconds),
-        }}) catch |err| switch (err) {
-            error.Timeout => return error.InsufficientResources,
-            else => |e| return e,
-        };
-        if (comptime std.log.logEnabled(.debug, .locking)) {
-            locking_log.debug("Downstream download permission acquired ({} available, {} connections until overload)", .{
-                @atomicLoad(usize, &ctx.context.downloads.downstream_semaphore.permits, .seq_cst),
-                @atomicLoad(usize, &ctx.context.downloads.overload_semaphore.permits, .seq_cst),
-            });
-        }
-        return .{
-            .io = ctx.request.io,
-            .semaphore = &ctx.context.downloads.downstream_semaphore,
-            .overload_semaphore = &ctx.context.downloads.overload_semaphore,
-        };
+        return .init(&ctx.context.downloads, &ctx.context.config);
     }
 
     pub fn inject_download_permission_downstream_cleanup(d: Download_Permission.Downstream) void {
-        d.semaphore.post(d.io);
-        d.overload_semaphore.post(d.io);
-        if (comptime std.log.logEnabled(.debug, .locking)) {
-            locking_log.debug("Downstream download permission returned ({} available, {} connections until overload)", .{
-                @atomicLoad(usize, &d.semaphore.permits, .seq_cst),
-                @atomicLoad(usize, &d.overload_semaphore.permits, .seq_cst),
-            });
-        }
+        d.deinit();
     }
 
     pub fn inject_download_permission(ctx: Context) *Download_Permission {

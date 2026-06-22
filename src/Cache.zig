@@ -39,7 +39,7 @@ pub fn deinit(self: *Cache) void {
     self.gpa.free(self.entries);
 }
 
-pub fn active_entries(self: *Cache) !usize {
+pub fn active_entries(self: *Cache) error{Canceled}!usize {
     try self.lookup_lock.lockShared(self.io);
     defer self.lookup_lock.unlockShared(self.io);
     return self.lookup.size;
@@ -68,7 +68,7 @@ pub fn get(self: *Cache, artifact: Artifact, mode: Entry.Ref.Locking_Mode) error
 }
 
 // Call Entry.Ref.unlock when finished
-pub fn get_or_add(self: *Cache, artifact: Artifact) !?Entry.Ref {
+pub fn get_or_add(self: *Cache, artifact: Artifact) error{Canceled}!?Entry.Ref {
     for (0..10) |_| {
         if (try self.get(artifact, .exclusive)) |ref| return ref;
 
@@ -80,7 +80,12 @@ pub fn get_or_add(self: *Cache, artifact: Artifact) !?Entry.Ref {
         try self.lookup_lock.lock(self.io);
         defer self.lookup_lock.unlock(self.io);
 
-        const gop = try self.lookup.getOrPut(self.gpa, artifact);
+        const gop = self.lookup.getOrPut(self.gpa, artifact) catch |err| switch (err) {
+            error.OutOfMemory => {
+                log.debug("Failed to find/add/lock artifact {f}: {t}", .{ artifact, err });
+                return null;
+            },
+        };
         if (gop.found_existing) {
             self.entries[locked_index].unlock_exclusive(self.io);
             continue;
@@ -122,7 +127,7 @@ pub fn report_added_bytes(self: *Cache, bytes: u32) void {
 }
 
 // Call Entry.Ref.unlock when finished
-pub fn remove(self: *Cache, artifact: Artifact) !?Entry.Ref {
+pub fn remove(self: *Cache, artifact: Artifact) error{Canceled}!?Entry.Ref {
     const index = self.remove_lookup(artifact) orelse return null;
 
     const entry = &self.entries[index];

@@ -105,6 +105,34 @@ upstream: struct {
     recheck_expired_index_interval_seconds: u32 = std.time.s_per_hour,
 } = .{},
 
+/// When index.json is fetched from ziglang.org, some or all artifacts listed in it can be added to the memory cache automatically (if they aren't already in one of the caches)
+/// This is known as prewarming.
+/// Note: when using prewarming, you should make sure that either cache.mem.max_entries is large enough to hold all prewarmed artifacts, or cache.fs.min_requests == 1.
+prewarm: struct {
+    /// Any versions in index.json that are earlier than this will not be prewarmed.
+    /// In addition to a semantic version, this may be set to `master` to only prewarm the most recent nightly artifacts.
+    min_version: []const u8 = "0.14.1",
+
+    /// Enables prewarming for *.minisig artifacts corresponding to other prewarmed artifacts
+    minisig: bool = false,
+
+    /// Enables prewarming for zig source artifacts (zig-$VERSION.tar.xz)
+    source: bool = false,
+
+    /// Enables prewarming for zig bootstram artifacts (zig-bootstrap-$VERSION.tar.xz)
+    bootstrap: bool = false,
+
+    /// Enables prewarming for build artifacts that match a particular arch/os target.
+    /// Multiple `(build_target <target>)` entries may be specified.
+    /// You may use `*` to enable prewarming for all targets, but note that no other patterns are recognized, e.g. `x86_64-*` will not match anything.
+    build_target: []const []const u8 = &.{
+        "aarch64-macos",
+        "x86_64-linux",
+        "aarch64-linux",
+        "x86_64-windows",
+    },
+} = .{},
+
 request_rate_limit: ?Rate_Limiter.Config = .{},
 
 /// When set to true, rate limit information will be included in the /stats endpoint.

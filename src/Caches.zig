@@ -226,7 +226,7 @@ pub fn evict_from_fs_cache(fs_cache: *Cache, server_stats: *Server_Stats, artifa
 }
 
 pub fn evict_from_fs_cache_dir(fs_cache: *Cache, server_stats: *Server_Stats, artifact: Artifact, cache_dir: std.Io.Dir) !void {
-    log.debug("evict_from_mem_cache_dir {f}", .{ artifact });
+    log.debug("evict_from_fs_cache_dir {f}", .{ artifact });
     if (try fs_cache.remove(artifact)) |ref| {
         defer ref.unlock();
         _ = server_stats.cache_evictions_fs.fetchAdd(1, .monotonic);

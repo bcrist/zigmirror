@@ -97,6 +97,19 @@ pub fn parse(filename: []const u8) !Artifact {
     };
 }
 
+pub fn to_minisig_artifact(self: *const Artifact) Artifact {
+    return .{
+        .artifact_type = self.artifact_type,
+        .extension = self.extension.to_minisig(),
+        .major = self.major,
+        .minor = self.minor,
+        .patch = self.patch,
+        .pre = self.pre,
+        .build = self.build,
+        .buf = self.buf,
+    };
+}
+
 pub fn version(self: *const Artifact) std.SemanticVersion {
     return .{
         .major = self.major,
@@ -105,6 +118,59 @@ pub fn version(self: *const Artifact) std.SemanticVersion {
         .pre = if (self.pre) |pre| pre.slice(&self.buf) else null,
         .build = if (self.build) |build| build.slice(&self.buf) else null,
     };
+}
+
+/// Equivalent to lhs.version().order(rhs.version())
+pub fn version_order(lhs: *const Artifact, rhs: Artifact) std.math.Order {
+    if (lhs.major < rhs.major) return .lt;
+    if (lhs.major > rhs.major) return .gt;
+    if (lhs.minor < rhs.minor) return .lt;
+    if (lhs.minor > rhs.minor) return .gt;
+    if (lhs.patch < rhs.patch) return .lt;
+    if (lhs.patch > rhs.patch) return .gt;
+    if (lhs.pre != null and rhs.pre == null) return .lt;
+    if (lhs.pre == null and rhs.pre == null) return .eq;
+    if (lhs.pre == null and rhs.pre != null) return .gt;
+
+    // Iterate over pre-release identifiers until a difference is found.
+    var lhs_pre_it = std.mem.splitScalar(u8, lhs.pre.?.slice(&lhs.buf), '.');
+    var rhs_pre_it = std.mem.splitScalar(u8, rhs.pre.?.slice(&rhs.buf), '.');
+    while (true) {
+        const next_lid = lhs_pre_it.next();
+        const next_rid = rhs_pre_it.next();
+
+        // A larger set of pre-release fields has a higher precedence than a smaller set.
+        if (next_lid == null and next_rid != null) return .lt;
+        if (next_lid == null and next_rid == null) return .eq;
+        if (next_lid != null and next_rid == null) return .gt;
+
+        const lid = next_lid.?; // Left identifier
+        const rid = next_rid.?; // Right identifier
+
+        // Attempt to parse identifiers as numbers. Overflows are checked by parse.
+        const lnum: ?usize = std.fmt.parseUnsigned(usize, lid, 10) catch |err| switch (err) {
+            error.InvalidCharacter => null,
+            error.Overflow => unreachable,
+        };
+        const rnum: ?usize = std.fmt.parseUnsigned(usize, rid, 10) catch |err| switch (err) {
+            error.InvalidCharacter => null,
+            error.Overflow => unreachable,
+        };
+
+        // Numeric identifiers always have lower precedence than non-numeric identifiers.
+        if (lnum != null and rnum == null) return .lt;
+        if (lnum == null and rnum != null) return .gt;
+
+        // Identifiers consisting of only digits are compared numerically.
+        // Identifiers with letters or hyphens are compared lexically in ASCII sort order.
+        if (lnum != null and rnum != null) {
+            if (lnum.? < rnum.?) return .lt;
+            if (lnum.? > rnum.?) return .gt;
+        } else {
+            const ord = std.mem.order(u8, lid, rid);
+            if (ord != .eq) return ord;
+        }
+    }
 }
 
 pub fn format(self: *const Artifact, writer: *std.Io.Writer) std.Io.Writer.Error!void {
@@ -218,6 +284,21 @@ pub const Extension = enum {
     zip,
     txz_minisig,
     zip_minisig,
+
+    pub fn is_minisig(self: Extension) bool {
+        return switch (self) {
+            .txz, .zip => false,
+            .txz_minisig, .zip_minisig => true,
+        };
+    }
+
+    pub fn to_minisig(self: Extension) Extension {
+        return switch (self) {
+            .txz => .txz_minisig,
+            .zip => .zip_minisig,
+            .txz_minisig, .zip_minisig => self,
+        };
+    }
 
     pub fn format(self: Extension, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         try writer.writeAll(self.slice());

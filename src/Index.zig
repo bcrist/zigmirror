@@ -22,7 +22,17 @@ pub fn deinit(self: *Index) void {
     }
 }
 
-pub fn get(self: *Index, request: *http.Request, server_stats: *Server_Stats, config: *const Config, _: Download_Permission.Upstream, _: Download_Permission.Downstream) !void {
+pub fn get(
+    self: *Index,
+    loop: *http.Loop,
+    request: *http.Request,
+    cache: *Caches,
+    server_stats: *Server_Stats,
+    config: *const Config,
+    downloads: *Download_Permission,
+    _: Download_Permission.Upstream,
+    _: Download_Permission.Downstream,
+) !void {
     {
         try self.lock.lockShared(request.io);
         defer self.lock.unlockShared(request.io);
@@ -39,7 +49,7 @@ pub fn get(self: *Index, request: *http.Request, server_stats: *Server_Stats, co
     defer self.lock.unlock(request.io);
 
     if (self.is_outdated(tempora.now_utc(request.io).dt)) {
-        try self.locked_regenerate(request.io, server_stats, config);
+        try self.locked_regenerate(loop, cache, server_stats, config, downloads);
     }
     
     if (self.current) |content| {
@@ -47,31 +57,29 @@ pub fn get(self: *Index, request: *http.Request, server_stats: *Server_Stats, co
     } else return error.BadGateway;
 }
 
-pub fn maybe_regenerate(self: *Index, io: std.Io, cache: *Caches, server_stats: *Server_Stats, config: *const Config, _: Download_Permission.Upstream) error{Canceled}!void {
-    try self.lock.lock(io);
-    defer self.lock.unlock(io);
+pub fn maybe_regenerate(self: *Index, loop: *http.Loop, cache: *Caches, server_stats: *Server_Stats, config: *const Config, downloads: *Download_Permission, _: Download_Permission.Upstream) error{Canceled}!void {
+    try self.lock.lock(loop.io);
+    defer self.lock.unlock(loop.io);
 
-    if (self.is_outdated(tempora.now_utc(io).dt)) {
-        try self.locked_regenerate(io, server_stats, config);
-
-        _ = cache; // TODO
+    if (self.is_outdated(tempora.now_utc(loop.io).dt)) {
+        try self.locked_regenerate(loop, cache, server_stats, config, downloads);
     }
 }
 
-pub fn regenerate(self: *Index, io: std.Io, server_stats: *Server_Stats, config: *const Config, _: Download_Permission.Upstream) error{Canceled}!void {
-    try self.lock.lock(io);
-    defer self.lock.unlock(io);
+pub fn regenerate(self: *Index, loop: *http.Loop, cache: *Caches, server_stats: *Server_Stats, config: *const Config, downloads: *Download_Permission, _: Download_Permission.Upstream) error{Canceled}!void {
+    try self.lock.lock(loop.io);
+    defer self.lock.unlock(loop.io);
 
-    try self.locked_regenerate(io, server_stats, config);
+    try self.locked_regenerate(loop, cache, server_stats, config, downloads);
 }
 
-// assumes lock is held (either shared or exclusively) before calling
-fn locked_regenerate(self: *Index, io: std.Io, server_stats: *Server_Stats, config: *const Config) error{Canceled}!void {
-    const now = tempora.now_utc(io).dt;
+// assumes lock is held exclusively before calling
+fn locked_regenerate(self: *Index, loop: *http.Loop, cache: *Caches, server_stats: *Server_Stats, config: *const Config, downloads: *Download_Permission) error{Canceled}!void {
+    const now = tempora.now_utc(loop.io).dt;
     if (now.is_before(self.last_checked_upstream) or now.duration_since(self.last_checked_upstream).toSeconds() < self.min_recheck_index_interval_seconds) return;
     log.info("Beginning index.json refresh", .{});
     self.last_checked_upstream = now;
-    const content = Content.generate(io, self.gpa, server_stats, config) catch |err| switch (err) {
+    const content = Content.generate(loop, cache, server_stats, config, downloads) catch |err| switch (err) {
         error.Canceled => |e| return e,
         else => {
             log.err("Failed to regenerate index.json: {t}", .{ err });
@@ -109,7 +117,7 @@ pub fn is_outdated_by_artifact(self: *Index, io: std.Io, now: tempora.Date_Time,
 
     const current = self.current orelse return true;
 
-    return artifact.version().order(current.master_src.version()) == .gt;
+    return artifact.version_order(current.master_src) == .gt;
 }
 
 const Content = struct {
@@ -119,11 +127,11 @@ const Content = struct {
     master_date: tempora.Date,
     master_src: Artifact,
 
-    pub fn generate(io: std.Io, gpa: std.mem.Allocator, server_stats: *Server_Stats, config: *const Config) !Content {
-        var transfer: Upstream_Transfer = .init(io);
-        defer transfer.deinit(gpa);
+    pub fn generate(loop: *http.Loop, cache: *Caches, server_stats: *Server_Stats, config: *const Config, downloads: *Download_Permission) !Content {
+        var transfer: Upstream_Transfer = .init(loop.io);
+        defer transfer.deinit(loop.gpa);
 
-        try transfer.execute(io, "/download/index.json", null, server_stats, config, gpa);
+        try transfer.execute(loop.io, "/download/index.json", null, server_stats, config, loop.gpa);
 
         switch (transfer.status.raw) {
             .in_progress => unreachable,
@@ -135,7 +143,7 @@ const Content = struct {
         const total_bytes = transfer.bytes_available.raw;
         std.debug.assert(total_bytes == transfer.data.len);
 
-        const parsed = try std.json.parseFromSlice(std.json.Value, gpa, transfer.data, .{});
+        const parsed = try std.json.parseFromSlice(std.json.Value, loop.gpa, transfer.data, .{});
         defer parsed.deinit();
 
         if (parsed.value != .object) return error.BadGateway;
@@ -154,14 +162,23 @@ const Content = struct {
 
         const master_date = tempora.Date.from_string(tempora.Date.iso8601, master_date_value.string) catch return error.BadGateway;
 
+        var min_prewarm_version = master_src.version();
+        if (config.prewarm.min_version.len > 0 and !std.mem.eql(u8, config.prewarm.min_version, "master")) {
+            if (std.SemanticVersion.parse(config.prewarm.min_version)) |version| {
+                min_prewarm_version = version;
+            } else |err| {
+                log.warn("Invalid prewarm.min_version configuration: {t}", .{ err });
+            }
+        }
+
         var version_iter = parsed.value.object.iterator();
         while (version_iter.next()) |version_entry| {
             if (version_entry.value_ptr.* != .object) return error.BadGateway;
             var iter = version_entry.value_ptr.object.iterator();
             while (iter.next()) |entry| {
                 if (entry.value_ptr.* != .object) continue; // "version", "date", "docs", "stdDocs", etc.
-                const artifact = &entry.value_ptr.object;
-                const tarball_value = artifact.get("tarball") orelse return error.BadGateway;
+                const artifact_object = &entry.value_ptr.object;
+                const tarball_value = artifact_object.get("tarball") orelse return error.BadGateway;
                 if (tarball_value != .string) return error.BadGateway;
                 var tarball = tarball_value.string;
                 if (std.mem.startsWith(u8, tarball, "https://ziglang.org/builds/")) {
@@ -172,12 +189,19 @@ const Content = struct {
                         tarball = tarball[slash_pos + 1 ..];
                     }
                 } else continue;
+
+                const artifact = Artifact.parse(tarball) catch continue;
+
                 tarball = try std.fmt.allocPrint(parsed.arena.allocator(), "https://{s}/{s}", .{ config.public_hostname, tarball });
-                try artifact.put(parsed.arena.allocator(), "tarball", .{ .string = tarball });
+                try artifact_object.put(parsed.arena.allocator(), "tarball", .{ .string = tarball });
+
+                if (artifact.version().order(min_prewarm_version) != .lt) {
+                    try prewarm_artifact(loop, artifact, cache, server_stats, config, downloads);
+                }
             }
         }
 
-        var writer: std.Io.Writer.Allocating = .init(gpa);
+        var writer: std.Io.Writer.Allocating = .init(loop.gpa);
         defer writer.deinit();
 
         try writer.ensureUnusedCapacity(4096);
@@ -196,11 +220,11 @@ const Content = struct {
         var hash: [std.crypto.hash.sha2.Sha256.digest_length]u8 = undefined;
         std.crypto.hash.sha2.Sha256.hash(writer.writer.buffered(), &hash, .{});
 
-        const etag = try std.fmt.allocPrint(gpa, "{x}", .{ hash });
-        errdefer gpa.free(etag);
+        const etag = try std.fmt.allocPrint(loop.gpa, "{x}", .{ hash });
+        errdefer loop.gpa.free(etag);
 
         return .{
-            .generated = tempora.now_utc(io).dt,
+            .generated = tempora.now_utc(loop.io).dt,
             .etag = etag,
             .compressed_json = try writer.toOwnedSlice(),
             .master_date = master_date,
@@ -234,12 +258,47 @@ const Content = struct {
             _ = try reader.streamRemaining(try request.response_writer());
         }
     }
+
 };
+
+/// N.B. Assumes config.prewarm.min_version has already been checked!
+pub fn prewarm_artifact(loop: *http.Loop, artifact: Artifact, cache: *Caches, server_stats: *Server_Stats, config: *const Config, downloads: *Download_Permission) error{Canceled}!void {
+    switch (artifact.artifact_type) {
+        .source => if (!config.prewarm.source) return,
+        .bootstrap => if (!config.prewarm.bootstrap) return,
+        .build => |target_bs| {
+            const target = target_bs.slice(&artifact.buf);
+            for (config.prewarm.build_target) |prewarmed_target| {
+                if (std.mem.eql(u8, prewarmed_target, target)) break;
+                if (std.mem.eql(u8, prewarmed_target, "*")) break;
+            } else return;
+        },
+        .devkit => return,
+    }
+
+    loop.concurrent(download_and_add_to_cache.prewarm, .{ loop.io, loop.gpa, artifact, cache, server_stats, config, downloads }) catch |err| switch (err) {
+        error.Canceled => |e| return e,
+        else => {
+            log.warn("Failed to prewarm artifact {f}: {t}", .{ artifact, err });
+        },
+    };
+
+    if (config.prewarm.minisig and !artifact.extension.is_minisig()) {
+        const minisig_artifact = artifact.to_minisig_artifact();
+        loop.concurrent(download_and_add_to_cache.prewarm, .{ loop.io, loop.gpa, minisig_artifact, cache, server_stats, config, downloads }) catch |err| switch (err) {
+            error.Canceled => |e| return e,
+            else => {
+                log.warn("Failed to prewarm minisig {f}: {t}", .{ minisig_artifact, err });
+            },
+        };
+    }
+}
 
 const Index = @This();
 
 const log = std.log.scoped(.zigmirror);
 
+const download_and_add_to_cache = @import("download_and_add_to_cache.zig");
 const Upstream_Transfer = @import("Upstream_Transfer.zig");
 const Download_Permission = @import("Download_Permission.zig");
 const Caches = @import("Caches.zig");
