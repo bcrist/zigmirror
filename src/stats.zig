@@ -12,23 +12,46 @@ pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_
     const evictions_mem: f64 = @floatFromInt(server_stats.cache_evictions_mem.load(.monotonic));
     const evictions_fs: f64 = @floatFromInt(server_stats.cache_evictions_fs.load(.monotonic));
 
+    var cache_entry_arena: std.heap.ArenaAllocator = .init(arena);
+    defer cache_entry_arena.deinit();
+
+    const mem_entries: Cache_Entry_Collection = .{
+        .io = request.io,
+        .now = now_ts,
+        .arena = &cache_entry_arena,
+        .entries = cache.mem.entries,
+    };
+
+    const fs_entries: Cache_Entry_Collection = .{
+        .io = request.io,
+        .now = now_ts,
+        .arena = &cache_entry_arena,
+        .entries = cache.fs.entries,
+    };
+
     const cache_mem: Cache_Stats = .{
         .active_entries = try cache.mem.active_entries(),
         .bytes = cache.mem.total_bytes.load(.monotonic),
         .evictions = evictions_mem,
         .evictions_per_hour = round1(evictions_mem / hours_since_start),
-        .entries = try arena.alloc(Cache_Entry, cache.mem.entries.len),
+        .entries = .{
+            .data = &mem_entries,
+            .size = cache.mem.entries.len,
+            .element = Cache_Entry_Collection.element,
+        },
     };
-    try populate_cache_entries(cache.mem.io, arena, cache.mem.entries, cache_mem.entries, now_ts);
 
     const cache_fs: Cache_Stats = .{
         .active_entries = try cache.fs.active_entries(),
         .bytes = cache.fs.total_bytes.load(.monotonic),
         .evictions = evictions_fs,
         .evictions_per_hour = round1(evictions_fs / hours_since_start),
-        .entries = try arena.alloc(Cache_Entry, cache.fs.entries.len),
+        .entries = .{
+            .data = &fs_entries,
+            .size = cache.fs.entries.len,
+            .element = Cache_Entry_Collection.element,
+        },
     };
-    try populate_cache_entries(cache.fs.io, arena, cache.fs.entries, cache_fs.entries, now_ts);
 
     var rate_limits: []Rate_Limit_Entry = &.{};
     
@@ -89,81 +112,6 @@ pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_
     }, .{ .Context = Context });
 }
 
-fn populate_cache_entries(io: std.Io, arena: std.mem.Allocator, state_entries: []Cache.Entry, stats_entries: []Cache_Entry, now: i64) !void {
-    for (0.., state_entries, stats_entries) |index, *state, *stats| {
-        var artifact: ?Artifact = null;
-        var version: []const u8 = "";
-        var artifact_type: []const u8 = "";
-        var filename: []const u8 = "";
-        var bytes: ?usize = null;
-        var transfer_in_progress: bool = false;
-        var hash: []const u8 = "";
-        var eviction_score: ?u64 = null;
-        var locked = false;
-        {
-            locked = state.try_lock_shared(io);
-            defer if (locked) state.unlock_shared(io);
-
-            if (state.artifact) |a| {
-                artifact = a;
-                filename = try std.fmt.allocPrint(arena, "{f}", .{ a });
-                version = try std.fmt.allocPrint(arena, "{f}", .{ a.version() });
-                artifact_type = try std.fmt.allocPrint(arena, "{f}", .{ a.artifact_type.fmt(&a.buf) });
-                eviction_score = state.order_score(now);
-            }
-
-            switch (state.data) {
-                .none => {
-                    if (state.bytes) |b| {
-                        bytes = b;
-                    }
-                },
-                .transfer => |transfer| {
-                    transfer_in_progress = true;
-                    if (locked and transfer.bytes_available.load(.acquire) > 0) {
-                        bytes = transfer.data.len;
-                    }
-                },
-                .owned => |data| {
-                    bytes = data.len;
-                },
-            }
-
-            if (state.hash) |digest| {
-                hash = try std.fmt.allocPrint(arena, "{x}", .{ digest });
-            }
-        }
-
-        const request_count = state.requests.count.load(.monotonic);
-        const duration_count = state.requests.duration_count.load(.monotonic);
-        const duration_total = state.requests.duration_total.load(.monotonic);
-        const first_time = state.requests.first_time.load(.monotonic);
-        const last_time = state.requests.last_time.load(.monotonic);
-        const ms_since_first: f64 = if (request_count > 0) @floatFromInt(now - first_time) else 0;
-        const days_since_first = ms_since_first / std.time.ms_per_day;
-
-        stats.* = .{
-            .index = index,
-            .locked = locked,
-            .filename = filename,
-            .version = version,
-            .artifact_type = artifact_type,
-            .extension = if (artifact) |a| a.extension else null,
-            .bytes = bytes,
-            .transfer_in_progress = transfer_in_progress,
-            .hash = hash,
-            .first_request_time = if (request_count > 0) first_time else null,
-            .last_request_time = if (request_count > 0) last_time else null,
-            .request_count = if (artifact) |_| request_count else null,
-            .requests_per_day = if (days_since_first > 1.0 / 24.0) request_count / days_since_first else null,
-            .request_duration_min = if (duration_count > 0) state.requests.duration_min.load(.monotonic) else null,
-            .request_duration_max = if (duration_count > 0) state.requests.duration_max.load(.monotonic) else null,
-            .request_duration_avg = if (duration_count > 0) std.math.cast(i64, duration_total / duration_count) else null,
-            .eviction_score = eviction_score,
-        };
-    }
-}
-
 // round to 1 decimal place
 fn round1(val: f64) f64 {
     return @round(val * 10) / 10;
@@ -174,7 +122,7 @@ const Cache_Stats = struct {
     bytes: usize,
     evictions: f64,
     evictions_per_hour: f64,
-    entries: []Cache_Entry,
+    entries: zkittle.Collection,
 };
 
 const Cache_Entry = struct {
@@ -195,6 +143,95 @@ const Cache_Entry = struct {
     request_duration_max: ?i64,
     request_duration_avg: ?i64,
     eviction_score: ?u64,
+};
+
+const Cache_Entry_Collection = struct {
+    io: std.Io,
+    now: i64,
+    arena: *std.heap.ArenaAllocator,
+    entries: []Cache.Entry,
+
+    pub fn element(self_raw: *const anyopaque, index: usize) zkittle.Ref {
+        const self_ptr: *const Cache_Entry_Collection = @ptrCast(@alignCast(self_raw));
+        const self = self_ptr.*;
+        _ = self.arena.reset(.retain_capacity);
+        const arena = self.arena.allocator();
+        const state = &self.entries[index];
+        const entry = arena.create(Cache_Entry) catch return .nil;
+
+        var artifact: ?Artifact = null;
+        var version: []const u8 = "";
+        var artifact_type: []const u8 = "";
+        var filename: []const u8 = "";
+        var bytes: ?usize = null;
+        var transfer_in_progress: bool = false;
+        var hash: []const u8 = "";
+        var eviction_score: ?u64 = null;
+        var locked = false;
+        {
+            locked = state.try_lock_shared(self.io);
+            defer if (locked) state.unlock_shared(self.io);
+
+            if (state.artifact) |a| {
+                artifact = a;
+                filename = std.fmt.allocPrint(arena, "{f}", .{ a }) catch "OOM!";
+                version = std.fmt.allocPrint(arena, "{f}", .{ a.version() }) catch "OOM!";
+                artifact_type = std.fmt.allocPrint(arena, "{f}", .{ a.artifact_type.fmt(&a.buf) }) catch "OOM!";
+                eviction_score = state.order_score(self.now);
+            }
+
+            switch (state.data) {
+                .none => {
+                    if (state.bytes) |b| {
+                        bytes = b;
+                    }
+                },
+                .transfer => |transfer| {
+                    transfer_in_progress = true;
+                    if (locked and transfer.bytes_available.load(.acquire) > 0) {
+                        bytes = transfer.data.len;
+                    }
+                },
+                .owned => |data| {
+                    bytes = data.len;
+                },
+            }
+
+            if (state.hash) |digest| {
+                hash = std.fmt.allocPrint(arena, "{x}", .{ digest }) catch "OOM";
+            }
+        }
+
+        const request_count = state.requests.count.load(.monotonic);
+        const duration_count = state.requests.duration_count.load(.monotonic);
+        const duration_total = state.requests.duration_total.load(.monotonic);
+        const first_time = state.requests.first_time.load(.monotonic);
+        const last_time = state.requests.last_time.load(.monotonic);
+        const ms_since_first: f64 = if (request_count > 0) @floatFromInt(self.now - first_time) else 0;
+        const days_since_first = ms_since_first / std.time.ms_per_day;
+
+        entry.* = .{
+            .index = index,
+            .locked = locked,
+            .filename = filename,
+            .version = version,
+            .artifact_type = artifact_type,
+            .extension = if (artifact) |a| a.extension else null,
+            .bytes = bytes,
+            .transfer_in_progress = transfer_in_progress,
+            .hash = hash,
+            .first_request_time = if (request_count > 0) first_time else null,
+            .last_request_time = if (request_count > 0) last_time else null,
+            .request_count = if (artifact) |_| request_count else null,
+            .requests_per_day = if (days_since_first > 1.0 / 24.0) request_count / days_since_first else null,
+            .request_duration_min = if (duration_count > 0) state.requests.duration_min.load(.monotonic) else null,
+            .request_duration_max = if (duration_count > 0) state.requests.duration_max.load(.monotonic) else null,
+            .request_duration_avg = if (duration_count > 0) std.math.cast(i64, duration_total / duration_count) else null,
+            .eviction_score = eviction_score,
+        };
+
+        return zkittle.ref_from_ptr(Cache_Entry, entry, Context.cache.mem.entries);
+    }
 };
 
 const Rate_Limit_Entry = struct {
@@ -249,5 +286,6 @@ const Artifact = @import("Artifact.zig");
 const Server_Stats = @import("Server_Stats.zig");
 const http = @import("http");
 const tempora = @import("tempora");
+const zkittle = @import("zkittle");
 const fmt = @import("fmt");
 const std = @import("std");

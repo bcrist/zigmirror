@@ -26,6 +26,7 @@ pub fn build(b: *std.Build) void {
         .{ .name = "sx", .module = b.dependency("sx", .{}).module("sx") },
         .{ .name = "tempora", .module = b.dependency("tempora", .{}).module("tempora") },
         .{ .name = "dizzy", .module = b.dependency("dizzy", .{}).module("dizzy") },
+        .{ .name = "zkittle", .module = b.dependency("zkittle", .{}).module("zkittle") },
         .{ .name = "http", .module = http_module },
         .{ .name = "resources", .module = resources },
         .{ .name = "build_options", .module = build_options_mod },

@@ -22,6 +22,9 @@ Zig community mirrors are expected to serve over HTTPS, but good TLS support com
 ## Request Rate Limiting
 Basic IP-based request rate limiting is included.  When used, the HTTPS terminating proxy must set/update the `X-Forwarded-For` HTTP header.  Limiting will be applied to all IPs listed in the header, but once a request has been blocked, any remaining IPs in the list will not take a hit for that request.  Rate limiting can be disabled entirely by removing the `(request_rate_limit ...)` expression from the config file.
 
+## Cache Prewarming
+By default, build artifacts found in [index.json](https://ziglang.org/download/index.json) for the `aarch64-macos`, `x86_64-linux`, `aarch64-linux`, and `x86_64-windows` targets will be prewarmed into the memory cache periodically (excluding versions below 0.14.1).  This behavior can be adjusted in the `(prewarm ...)` section of the configuration file.
+
 ## Memory/Disk Usage Tuning
 The `(cache (mem))` and `(cache (fs))` expressions in the config file include two inline parameters:
 * `max_entries`, the maximum number of artifacts that can exist in the cache at any particular time
@@ -92,4 +95,3 @@ sudo zig build upgrade -Doptimize=ReleaseSafe -Dupgrade-bin-user=zigmirror
 * Tool for testing concurrent downloads, client disconnects, etc.
 * Track overall downstream/upstream transfer rate estimate
 * content range request support
-* Reduce arena usage in stats.zk rendering (implement lazy zkittle value accessor instead of intermediate []Cache_Entry list)
