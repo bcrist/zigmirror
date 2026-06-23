@@ -18,7 +18,7 @@ pub fn main(init: std.process.Init) !void {
     var loop: http.Loop = .init(threaded_io.io(), init.gpa);
     defer loop.deinit();
 
-    var server: Server = .init(&loop, try .init(loop.io, init.gpa, config));
+    var server: Server = .init(&loop, try .init(loop.io, init.gpa, &config));
     defer server.deinit();
 
     try server.router("", .{
@@ -183,25 +183,26 @@ const Context = struct {
         server_stats: Server_Stats,
         downloads: Download_Permission,
 
-        pub fn init(io: std.Io, gpa: std.mem.Allocator, config: Config) !@This() {
+        pub fn init(io: std.Io, gpa: std.mem.Allocator, config: *const Config) !@This() {
             var mem_cache: Cache = try .init(io, gpa, config.cache.mem.max_entries);
             errdefer mem_cache.deinit();
 
             var fs_cache: Cache = try .init(io, gpa, config.cache.fs.max_entries);
             errdefer fs_cache.deinit();
 
-            var index: Index = .init(gpa, &config);
+            var index: Index = .init(gpa, config);
             errdefer index.deinit();
 
-            var root: Root = try .init(io, gpa, &config);
+            var root: Root = try .init(io, gpa, config);
             errdefer root.deinit();
 
-            var server_stats: Server_Stats = .init(io, config.upstream.default_connect_timeout_seconds * std.time.ms_per_s / 2);
+            var server_stats: Server_Stats = try .init(io, gpa, config);
+            errdefer server_stats.deinit();
 
             try Caches.load_fs_cache(&fs_cache, &server_stats, config.cache.fs.path, config.allow_devkit_artifacts);
 
             return .{
-                .config = config,
+                .config = config.*,
                 .cache = .{
                     .mem = mem_cache,
                     .fs = fs_cache,
@@ -220,6 +221,7 @@ const Context = struct {
         }
 
         pub fn deinit(self: *@This()) void {
+            self.server_stats.deinit();
             self.root.deinit();
             self.index.deinit();
             self.rate_limiter.deinit();

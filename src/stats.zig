@@ -78,12 +78,11 @@ pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_
         }
     }
 
-    const upstream_permits_remaining = @atomicLoad(usize, &downloads.upstream_semaphore.permits, .seq_cst);
     const downstream_permits_remaining = @atomicLoad(usize, &downloads.downstream_semaphore.permits, .seq_cst);
     const overflow_permits_remaining = @atomicLoad(usize, &downloads.overload_semaphore.permits, .seq_cst);
 
-    const num_transfers_in_progress_upstream = config.upstream.max_connections - upstream_permits_remaining;
     const num_transfers_in_progress_downstream = config.max_concurrent_downloads - downstream_permits_remaining;
+    const num_transfers_pending = config.max_concurrent_connections - overflow_permits_remaining -| num_transfers_in_progress_downstream;
 
     try request.render("stats.zk", .{
         .hostname = config.public_hostname,
@@ -96,11 +95,8 @@ pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_
         .upstream_head_time_minisig = std.Io.Duration.fromMilliseconds(server_stats.expected_upstream_head_time_ms_minisig.load(.monotonic) * 2),
         .max_transfers_in_progress_upstream = config.upstream.max_connections,
         .max_transfers_in_progress_downstream = config.max_concurrent_downloads,
-        .num_transfers_in_progress_upstream = num_transfers_in_progress_upstream,
-        .num_transfers_in_progress_downstream = num_transfers_in_progress_downstream,
-        .num_transfers_pending = config.max_concurrent_connections - overflow_permits_remaining -| num_transfers_in_progress_downstream,
-        .transfer_rate_upstream = "TODO",
-        .transfer_rate_downstream = "TODO",
+        .num_transfers_pending = num_transfers_pending,
+        .transfers = server_stats.transfer_stats(),
         .cache = .{
             .mem = cache_mem,
             .fs = cache_fs,
@@ -133,7 +129,9 @@ const Cache_Entry = struct {
     artifact_type: []const u8,
     extension: ?Artifact.Extension,
     bytes: ?usize,
-    transfer_in_progress: bool,
+    transfer: ?struct {
+        bytes: usize,
+    },
     hash: []const u8,
     request_count: ?usize,
     requests_per_day: ?f64,
@@ -164,7 +162,7 @@ const Cache_Entry_Collection = struct {
         var artifact_type: []const u8 = "";
         var filename: []const u8 = "";
         var bytes: ?usize = null;
-        var transfer_in_progress: bool = false;
+        var transfer_bytes: ?usize = null;
         var hash: []const u8 = "";
         var eviction_score: ?u64 = null;
         var locked = false;
@@ -187,8 +185,8 @@ const Cache_Entry_Collection = struct {
                     }
                 },
                 .transfer => |transfer| {
-                    transfer_in_progress = true;
-                    if (locked and transfer.bytes_available.load(.acquire) > 0) {
+                    transfer_bytes = transfer.bytes_available.load(.acquire);
+                    if (transfer_bytes.? > 0) {
                         bytes = transfer.data.len;
                     }
                 },
@@ -218,7 +216,7 @@ const Cache_Entry_Collection = struct {
             .artifact_type = artifact_type,
             .extension = if (artifact) |a| a.extension else null,
             .bytes = bytes,
-            .transfer_in_progress = transfer_in_progress,
+            .transfer = if (transfer_bytes) |b| .{ .bytes = b } else null,
             .hash = hash,
             .first_request_time = if (request_count > 0) first_time else null,
             .last_request_time = if (request_count > 0) last_time else null,
@@ -241,6 +239,15 @@ const Rate_Limit_Entry = struct {
 };
 
 const Context = struct {
+    pub const transfers = struct {
+        pub const upstream = struct {
+            pub fn bps(b: f32, w: *std.Io.Writer) std.Io.Writer.Error!void {
+                try w.print("{d:.1}", .{ fmt.si.value(b, "B/s") });
+            }
+        };
+        pub const downstream = upstream;
+    };
+
     pub const cache = struct {
         pub const mem = struct {
             pub fn bytes(b: usize, w: *std.Io.Writer) std.Io.Writer.Error!void {
@@ -249,6 +256,10 @@ const Context = struct {
 
             pub const entries = struct {
                 pub const bytes = mem.bytes;
+
+                pub const transfer = struct {
+                    pub const bytes = mem.bytes;
+                };
 
                 pub const requests_per_day = " ({d:.0}/d)";
 
@@ -266,6 +277,7 @@ const Context = struct {
         };
         pub const fs = mem;
     };
+
     pub const rate_limits = struct {
         pub fn last_generation_time(ts: i64, w: *std.Io.Writer) std.Io.Writer.Error!void {
             try w.print("{f}", .{ DTO.from_timestamp_ms(ts, null).fmt(dtf) });

@@ -15,8 +15,8 @@
             <tr><th>Filesystem cache usage</th><td class="left">\\cache.fs.bytes// (\\cache.fs.active_entries// entries)</td></tr>
             <tr><th>Upstream archive timeout</th><td class="left">\\upstream_head_time_archive//</td></tr>
             <tr><th>Upstream minisig timeout</th><td class="left">\\upstream_head_time_minisig//</td></tr>
-            <tr><th>Active upstream transfers</th><td class="left">\\num_transfers_in_progress_upstream///\\max_transfers_in_progress_upstream//<!-- (\\transfer_rate_upstream///s)--></td></tr>
-            <tr><th>Active downstream transfers</th><td class="left">\\num_transfers_in_progress_downstream///\\max_transfers_in_progress_downstream//<!-- (\\transfer_rate_downstream///s)--></td></tr>
+            <tr><th>Active upstream transfers</th><td class="left">\\transfers.upstream.count///\\max_transfers_in_progress_upstream transfers.upstream.count?// (\\transfers.upstream.bps//)\\~//</td></tr>
+            <tr><th>Active downstream transfers</th><td class="left">\\transfers.downstream.count///\\max_transfers_in_progress_downstream transfers.downstream.count?// (\\transfers.downstream.bps//)\\~//</td></tr>
             <tr><th>Pending downstream transfers</th><td class="left">\\num_transfers_pending//</td></tr>
         </table>
 \\ show_rate_limit_stats?
@@ -42,17 +42,23 @@
         <table>
             <thead>
                 <tr>
+                    <th colspan="5"></th>
+                    <th colspan="3">Requests</th>
+                    <th colspan="3">Duration</th>
+                    <th colspan="2"></th>
+                </tr>
+                <tr>
                     <th>Slot</th>
                     <th>Type</th>
                     <th>Version</th>
                     <th>Extension</th>
                     <th>Bytes</th>
-                    <th>Requests</th>
-                    <th>First Request</th>
-                    <th>Last Request</th>
-                    <th>Min. Duration</th>
-                    <th>Max. Duration</th>
-                    <th>Avg. Duration</th>
+                    <th>Count</th>
+                    <th>First</th>
+                    <th>Last</th>
+                    <th>Min</th>
+                    <th>Max</th>
+                    <th>Mean</th>
                     <th>Eviction Score</th>
                     <th>SHA-256</th>
                 </tr>
@@ -63,7 +69,7 @@
                 <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\artifact_type//</td>
                 <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//><a href="/\\filename//">\\version//</a></td>
                 <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\extension//</td>
-                <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\bytes transfer_in_progress?// (downloading)\\~//</td>
+                <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\transfer: bytes// / \\~ bytes transfer?// downloaded\\~//</td>
                 <td>\\request_count requests_per_day//</td>
                 <td>\\first_request_time//</td>
                 <td>\\last_request_time//</td>
@@ -80,17 +86,23 @@
         <table>
             <thead>
                 <tr>
+                    <th colspan="5"></th>
+                    <th colspan="3">Requests</th>
+                    <th colspan="3">Duration</th>
+                    <th colspan="2"></th>
+                </tr>
+                <tr>
                     <th>Slot</th>
                     <th>Type</th>
                     <th>Version</th>
                     <th>Extension</th>
                     <th>Bytes</th>
-                    <th>Requests</th>
-                    <th>First Request</th>
-                    <th>Last Request</th>
-                    <th>Min. Duration</th>
-                    <th>Max. Duration</th>
-                    <th>Avg. Duration</th>
+                    <th>Count</th>
+                    <th>First</th>
+                    <th>Last</th>
+                    <th>Min</th>
+                    <th>Max</th>
+                    <th>Mean</th>
                     <th>Eviction Score</th>
                     <th>SHA-256</th>
                 </tr>
@@ -101,7 +113,7 @@
                 <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\artifact_type//</td>
                 <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//><a href="/\\filename//">\\version//</a></td>
                 <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\extension//</td>
-                <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\bytes transfer_in_progress?// (downloading)\\~//</td>
+                <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\transfer: bytes// / \\~ bytes transfer?// downloaded\\~//</td>
                 <td>\\request_count requests_per_day//</td>
                 <td>\\first_request_time//</td>
                 <td>\\last_request_time//</td>

@@ -93,5 +93,4 @@ sudo zig build upgrade -Doptimize=ReleaseSafe -Dupgrade-bin-user=zigmirror
 
 # TODO
 * Tool for testing concurrent downloads, client disconnects, etc.
-* Track overall downstream/upstream transfer rate estimate
 * content range request support

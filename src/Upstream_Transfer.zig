@@ -132,6 +132,7 @@ pub fn execute(self: *Upstream_Transfer, io: std.Io, upstream_path: []const u8, 
         io,
         gpa,
         &req,
+        server_stats,
         request_started,
         expected_head_time,
         if (ext == null) null else head_time_ptr,
@@ -160,7 +161,7 @@ pub fn execute(self: *Upstream_Transfer, io: std.Io, upstream_path: []const u8, 
     }
 }
 
-fn transfer_impl(self: *Upstream_Transfer, io: std.Io, gpa: std.mem.Allocator, req: *std.http.Client.Request, request_started: i64, expected_head_time: u32, head_time_ptr: ?*std.atomic.Value(u32), min_connect_timeout_seconds: u32) std.Io.Cancelable!void {
+fn transfer_impl(self: *Upstream_Transfer, io: std.Io, gpa: std.mem.Allocator, req: *std.http.Client.Request, server_stats: *Server_Stats, request_started: i64, expected_head_time: u32, head_time_ptr: ?*std.atomic.Value(u32), min_connect_timeout_seconds: u32) std.Io.Cancelable!void {
     req.sendBodiless() catch |err| switch (err) {
         error.WriteFailed => {
             self.status.store(.failed, .monotonic);
@@ -253,6 +254,12 @@ fn transfer_impl(self: *Upstream_Transfer, io: std.Io, gpa: std.mem.Allocator, r
     var transfer_buffer: [32 * 1024]u8 = undefined;
     const reader = result.readerDecompressing(&transfer_buffer, &decompress, decompress_buffer);
 
+    const transfer_speed_ptr = server_stats.claim_upstream_transfer_speed();
+    defer server_stats.release_transfer_speed(transfer_speed_ptr);
+
+    var last_reported_transfer_speed: std.Io.Timestamp = .now(io, .awake);
+    var bytes_since_last_reported_transfer_speed: usize = 0;
+
     if (result.head.content_length) |content_length| {
         const data = gpa.alloc(u8, content_length) catch |err| switch (err) {
             error.OutOfMemory => {
@@ -279,6 +286,7 @@ fn transfer_impl(self: *Upstream_Transfer, io: std.Io, gpa: std.mem.Allocator, r
                     return;
                 },
             };
+            const end_ts: std.Io.Timestamp = .now(io, .awake);
             const buffered_bytes = reader.buffered();
             collector.writeAll(buffered_bytes) catch |err| switch (err) {
                 error.WriteFailed => {
@@ -289,6 +297,25 @@ fn transfer_impl(self: *Upstream_Transfer, io: std.Io, gpa: std.mem.Allocator, r
             };
             _ = self.bytes_available.fetchAdd(@intCast(buffered_bytes.len), .acq_rel);
             io.futexWake(u32, &self.bytes_available.raw, std.math.maxInt(u32));
+
+            bytes_since_last_reported_transfer_speed += buffered_bytes.len;
+
+            const duration_us: f32 = @floatFromInt(last_reported_transfer_speed.durationTo(end_ts).toMicroseconds());
+            if (duration_us >= 1_000_000) {
+                const bps = 1000_000 * @as(f32, @floatFromInt(bytes_since_last_reported_transfer_speed)) / duration_us;
+
+                server_stats.update_transfer_speed(transfer_speed_ptr, bps);
+
+                log.debug("Upstream {x}: Transferring at {d:.1}, total transferred so far: {f}", .{
+                    self.id,
+                    fmt.si.value(bps, "B/s"),
+                    fmt.bytes(collector.buffered().len),
+                });
+
+                last_reported_transfer_speed = end_ts;
+                bytes_since_last_reported_transfer_speed = 0;
+            }
+            
             hasher.update(buffered_bytes);
             reader.toss(buffered_bytes.len);
         }
@@ -311,6 +338,7 @@ fn transfer_impl(self: *Upstream_Transfer, io: std.Io, gpa: std.mem.Allocator, r
                     return;
                 },
             };
+            const end_ts: std.Io.Timestamp = .now(io, .awake);
             const buffered_bytes = reader.buffered();
             collector.writer.writeAll(buffered_bytes) catch |err| switch (err) {
                 error.WriteFailed => {
@@ -319,6 +347,25 @@ fn transfer_impl(self: *Upstream_Transfer, io: std.Io, gpa: std.mem.Allocator, r
                     return;
                 },
             };
+
+            bytes_since_last_reported_transfer_speed += buffered_bytes.len;
+
+            const duration_us: f32 = @floatFromInt(last_reported_transfer_speed.durationTo(end_ts).toMicroseconds());
+            if (duration_us >= 1_000_000) {
+                const bps = 1000_000 * @as(f32, @floatFromInt(bytes_since_last_reported_transfer_speed)) / duration_us;
+
+                server_stats.update_transfer_speed(transfer_speed_ptr, bps);
+
+                log.debug("Upstream {x}: Transferring at {d:.1}, total transferred so far: {f}", .{
+                    self.id,
+                    fmt.si.value(bps, "B/s"),
+                    fmt.bytes(collector.writer.buffered().len),
+                });
+
+                last_reported_transfer_speed = end_ts;
+                bytes_since_last_reported_transfer_speed = 0;
+            }
+
             hasher.update(buffered_bytes);
             reader.toss(buffered_bytes.len);
         }
@@ -367,15 +414,6 @@ fn watchdog(self: *Upstream_Transfer, io: std.Io, request_started: i64, config: 
 
         const bytes_now = self.bytes_available.load(.monotonic);
         if (bytes_now == last_seen_bytes) return;
-
-        const delta_bytes = bytes_now - last_seen_bytes;
-        const bps = (delta_bytes + timeout_seconds - 1) / timeout_seconds;
-
-        log.info("Upstream {x}: Transferring at {f}/s, total transferred so far: {f}", .{
-            self.id,
-            fmt.bytes(bps),
-            fmt.bytes(bytes_now),
-        });
 
         last_seen_bytes = bytes_now;
         timeout_seconds = config.upstream.dead_transfer_timeout_seconds;

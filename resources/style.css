@@ -40,6 +40,10 @@ tr:nth-child(odd) {
     background: #181818;
 }
 
+thead tr, thead tr:nth-child(odd) {
+    background: #111;
+}
+
 td, th {
     padding: 0.2em 0.5em;
 }

@@ -159,22 +159,28 @@ fn downstream(request: *http.Request, artifact: Artifact, cache: *Caches, server
             .none => return error.NotFound,
             .owned => |data| {
                 try headers.check_and_set_headers(request, ref.ptr);
-                try request.respond(data);
+                try downstream_transfer.respond_slice(request, data, server_stats);
                 Caches.report_hit(request, server_stats, ref.ptr);
             },
             .transfer => |transfer| {
+                const transfer_speed_ptr = server_stats.claim_downstream_transfer_speed();
+                defer server_stats.release_transfer_speed(transfer_speed_ptr);
+
                 var sent_bytes: usize = 0;
+                var begin_ts: std.Io.Timestamp = .now(request.io, .awake);
+                var limit: std.Io.Limit = .limited(64 * 1024);
                 var status = transfer.status.load(.monotonic);
+                var headers_set: bool = false;
                 while (status == .in_progress) : (status = transfer.status.load(.monotonic)) {
                     const available_bytes = transfer.bytes_available.load(.acquire);
                     if (available_bytes > sent_bytes) {
-                        if (sent_bytes == 0) {
+                        if (!headers_set) {
                             try headers.check_and_set_headers(request, ref.ptr);
                             request.response.content_length = transfer.data.len;
+                            begin_ts = .now(request.io, .awake);
+                            headers_set = true;
                         }
-                        const writer = try request.response_writer();
-                        try writer.writeAll(transfer.data[sent_bytes..available_bytes]);
-                        sent_bytes = available_bytes;
+                        sent_bytes += try downstream_transfer.send_slice(request, transfer.data[sent_bytes..available_bytes], server_stats, transfer_speed_ptr, &limit, &begin_ts);
                     } else {
                         const timeout: std.Io.Timeout = .{ .duration = .{ .raw = .fromSeconds(1), .clock = .awake } };
                         std.Io.futexWaitTimeout(request.io, u32, &transfer.bytes_available.raw, available_bytes, timeout) catch |err| switch (err) {
@@ -186,13 +192,15 @@ fn downstream(request: *http.Request, artifact: Artifact, cache: *Caches, server
                 switch (status) {
                     .in_progress => unreachable,
                     .complete => {
-                        if (sent_bytes == 0) {
+                        if (!headers_set) {
                             try headers.check_and_set_headers(request, ref.ptr);
-                            try request.respond(transfer.data);
+                            try downstream_transfer.respond_slice(request, transfer.data, server_stats);
                         } else {
-                            if (sent_bytes < transfer.data.len) {
-                                const writer = try request.response_writer();
-                                try writer.writeAll(transfer.data[sent_bytes..]);
+                            while (sent_bytes < transfer.data.len) {
+                                sent_bytes += downstream_transfer.send_slice(request, transfer.data[sent_bytes..], server_stats, transfer_speed_ptr, &limit, &begin_ts) catch |err| switch (err) {
+                                    error.EndOfStream => break,
+                                    else => |e| return e,
+                                };
                             }
                             try request.end_response();
                         }
@@ -208,6 +216,7 @@ fn downstream(request: *http.Request, artifact: Artifact, cache: *Caches, server
 
 const log = std.log.scoped(.zigmirror);
 
+const downstream_transfer = @import("downstream_transfer.zig");
 const Upstream_Transfer = @import("Upstream_Transfer.zig");
 const Download_Permission = @import("Download_Permission.zig");
 const Server_Stats = @import("Server_Stats.zig");
