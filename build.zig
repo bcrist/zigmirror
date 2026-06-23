@@ -16,7 +16,7 @@ pub fn build(b: *std.Build) void {
 
     var service_integration: []const u8 = "dummy";
 
-    if (b.systemIntegrationOption("systemd", .{ .default = true })) {
+    if (b.systemIntegrationOption("systemd", .{ .default = target.result.os.tag == .linux })) {
         service_integration = "systemd";
     }
 
