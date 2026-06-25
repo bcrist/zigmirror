@@ -54,8 +54,8 @@ fn notify(io: std.Io, msg: []const u8) void {
         .path = undefined,
     };
     var path_len = addr.path.len;
-    @memcpy(storage.path[0..path_len], addr.path[addr.path.len - path_len ..]);
-    if (storage.path.len - path_len > 0) {
+    @memcpy(storage.path[0..path_len], addr.path);
+    if (storage.path.len > path_len) {
         @branchHint(.likely);
         storage.path[path_len] = 0;
         path_len += 1;
@@ -102,28 +102,22 @@ fn connect(fd: std.posix.socket_t, addr: *const std.posix.sockaddr, addr_len: st
         switch (std.posix.errno(std.posix.system.connect(fd, addr, addr_len))) {
             .SUCCESS => return,
             .INTR => continue,
-            else => |e| {
-                switch (e) {
-                    .AFNOSUPPORT => return error.AddressFamilyUnsupported,
-                    .AGAIN => return error.WouldBlock,
-                    .INPROGRESS => return error.WouldBlock,
-                    .ACCES => return error.AccessDenied,
-
-                    .LOOP => return error.SymLinkLoop,
-                    .NOENT => return error.FileNotFound,
-                    .NOTDIR => return error.NotDir,
-                    .ROFS => return error.ReadOnlyFileSystem,
-                    .PERM => return error.PermissionDenied,
-
-                    .BADF => |err| return std.Io.Threaded.errnoBug(err), // File descriptor used after closed.
-                    .CONNABORTED => |err| return std.Io.Threaded.errnoBug(err),
-                    .FAULT => |err| return std.Io.Threaded.errnoBug(err),
-                    .ISCONN => |err| return std.Io.Threaded.errnoBug(err),
-                    .NOTSOCK => |err| return std.Io.Threaded.errnoBug(err),
-                    .PROTOTYPE => |err| return std.Io.Threaded.errnoBug(err),
-                    else => |err| return std.posix.unexpectedErrno(err),
-                }
-            },
+            .AFNOSUPPORT => return error.AddressFamilyUnsupported,
+            .AGAIN => return error.WouldBlock,
+            .INPROGRESS => return error.WouldBlock,
+            .ACCES => return error.AccessDenied,
+            .LOOP => return error.SymLinkLoop,
+            .NOENT => return error.FileNotFound,
+            .NOTDIR => return error.NotDir,
+            .ROFS => return error.ReadOnlyFileSystem,
+            .PERM => return error.PermissionDenied,
+            .BADF => |err| return std.Io.Threaded.errnoBug(err), // File descriptor used after closed.
+            .CONNABORTED => |err| return std.Io.Threaded.errnoBug(err),
+            .FAULT => |err| return std.Io.Threaded.errnoBug(err),
+            .ISCONN => |err| return std.Io.Threaded.errnoBug(err),
+            .NOTSOCK => |err| return std.Io.Threaded.errnoBug(err),
+            .PROTOTYPE => |err| return std.Io.Threaded.errnoBug(err),
+            else => |err| return std.posix.unexpectedErrno(err),
         }
     }
 }
