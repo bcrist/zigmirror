@@ -43,7 +43,7 @@ pub fn execute(self: *Upstream_Transfer, io: std.Io, upstream_path: []const u8, 
     };
 
     log.debug("Upstream {x}: Starting download for {f}", .{ self.id, uri });
-    const client_now: std.Io.Timestamp = .now(io, .real);
+    const client_now: std.Io.Timestamp = .now(io, .awake);
 
     var ca_bundle: std.crypto.Certificate.Bundle = .empty;
     ca_bundle.rescan(gpa, io, client_now) catch |err| switch (err) {
@@ -80,7 +80,7 @@ pub fn execute(self: *Upstream_Transfer, io: std.Io, upstream_path: []const u8, 
         .protocol = .tls,
         .timeout = .{ .duration = .{
             .raw = std.Io.Duration.fromMilliseconds(expected_head_time * 2),
-            .clock = .real,
+            .clock = .awake,
         }},
     }) catch |err| switch (err) {
         error.Canceled => {

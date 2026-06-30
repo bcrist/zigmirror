@@ -9,7 +9,7 @@ pub fn main(init: std.process.Init) !void {
     const config = try load_config(init.arena.allocator(), init.gpa, init.io, init.minimal.args);
 
     var threaded_io: std.Io.Threaded = .init(init.gpa, .{
-        .stack_size = 1024 * 1024,
+        .stack_size = 10 * 1024 * 1024,
     });
     defer threaded_io.deinit();
 
@@ -43,7 +43,7 @@ pub fn main(init: std.process.Init) !void {
             .listen_options = .{
                 .reuse_address = true,
             },
-            .temp_allocator_pool_size = 100,
+            .temp_allocator_pool_size = config.max_concurrent_connections,
             .temp_allocator_reservation_size = 1024 * 1024,
             .request_timeout = .fromSeconds(config.request_timeout_seconds),
         }});
@@ -112,7 +112,7 @@ fn signal_handler(_: std.posix.SIG) callconv(.c) void {
 
 fn rate_limit_cleanup_task(io: std.Io, period_seconds: i64, rate_limit: *Rate_Limiter) error{Canceled}!void {
     while (true) {
-        try io.sleep(.fromSeconds(period_seconds), .real);
+        try io.sleep(.fromSeconds(period_seconds), .awake);
         try rate_limit.cleanup(tempora.now_utc(io).timestamp_ms());
 
     }
@@ -120,14 +120,14 @@ fn rate_limit_cleanup_task(io: std.Io, period_seconds: i64, rate_limit: *Rate_Li
 
 fn mem_cache_cleanup_task(io: std.Io, cache: *Caches, server_stats: *Server_Stats, config: *const Config) error{Canceled}!void {
     while (true) {
-        try io.sleep(.fromSeconds(config.cache.mem.periodic_eviction.?.interval_minutes * 60), .real);
+        try io.sleep(.fromSeconds(config.cache.mem.periodic_eviction.?.interval_minutes * 60), .awake);
         try cache.periodic_cleanup(server_stats, config);
     }
 }
 
 fn recheck_index_task(loop: *http.Loop, index: *Index, cache: *Caches, downloads: *Download_Permission, server_stats: *Server_Stats, config: *const Config) error{Canceled}!void {
     while (true) {
-        try loop.io.sleep(.fromSeconds(config.upstream.recheck_expired_index_interval_seconds), .real);
+        try loop.io.sleep(.fromSeconds(config.upstream.recheck_expired_index_interval_seconds), .awake);
         const permission = Download_Permission.Upstream.init(downloads, config) catch |err| switch (err) {
             error.Canceled => |e| return e,
             error.InsufficientResources => continue,
