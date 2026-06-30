@@ -123,6 +123,7 @@ pub fn is_outdated_by_artifact(self: *Index, io: std.Io, now: tempora.Date_Time,
 const Content = struct {
     generated: tempora.Date_Time,
     etag: []const u8,
+    uncompressed_length: usize,
     compressed_json: []const u8,
     master_date: tempora.Date,
     master_src: Artifact,
@@ -208,8 +209,9 @@ const Content = struct {
 
         var deflate_buffer: [std.compress.flate.max_window_len]u8 = undefined;
         var compressor: std.compress.flate.Compress = try .init(&writer.writer, &deflate_buffer, .zlib, .default);
+        var hasher: std.Io.Writer.Hashed(std.crypto.hash.sha2.Sha256) = .initHasher(&compressor.writer, .init(.{}), &.{});
         
-        std.json.Stringify.value(parsed.value, .{ .whitespace = .indent_2 }, &compressor.writer) catch |err| switch (err) {
+        std.json.Stringify.value(parsed.value, .{ .whitespace = .indent_2 }, &hasher.writer) catch |err| switch (err) {
             error.WriteFailed => return error.OutOfMemory,
         };
 
@@ -217,15 +219,14 @@ const Content = struct {
             error.WriteFailed => return error.OutOfMemory,
         };
 
-        var hash: [std.crypto.hash.sha2.Sha256.digest_length]u8 = undefined;
-        std.crypto.hash.sha2.Sha256.hash(writer.writer.buffered(), &hash, .{});
-
+        const hash = hasher.hasher.finalResult();
         const etag = try std.fmt.allocPrint(loop.gpa, "{x}", .{ hash });
         errdefer loop.gpa.free(etag);
 
         return .{
             .generated = tempora.now_utc(loop.io).dt,
             .etag = etag,
+            .uncompressed_length = hasher.hasher.total_len,
             .compressed_json = try writer.toOwnedSlice(),
             .master_date = master_date,
             .master_src = master_src,
@@ -248,14 +249,14 @@ const Content = struct {
         
         if (request.check_accept_encoding(.deflate)) {
             try request.set_response_header("content-encoding", "deflate");
-            try request.respond(self.compressed_json);
+            try request.respond_ranged(self.compressed_json, .{});
         } else {
             var compressed_reader = std.Io.Reader.fixed(self.compressed_json);
             var decompress: std.http.Decompress = undefined;
-            const decompress_buffer = try request.arena.alloc(u8, std.compress.flate.max_window_len);
+            const decompress_buffer = try request.arena().alloc(u8, std.compress.flate.max_window_len);
             decompress = .{ .flate = .init(&compressed_reader, .zlib, decompress_buffer) };
             const reader = &decompress.flate.reader;
-            _ = try reader.streamRemaining(try request.response_writer());
+            _ = try reader.streamRemaining(try request.response_writer_ranged(self.uncompressed_length, .{}));
         }
     }
 

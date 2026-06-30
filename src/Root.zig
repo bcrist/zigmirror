@@ -1,4 +1,5 @@
 allocator: std.mem.Allocator,
+uncompressed_length: usize,
 compressed_data: []const u8,
 etag: []const u8,
 last_modified: tempora.Date_Time,
@@ -23,9 +24,11 @@ pub fn init(io: std.Io, gpa: std.mem.Allocator, config: *const Config) !Root {
 
     const hash = hasher.hasher.finalResult();
     const etag = try std.fmt.allocPrint(gpa, "{x}", .{ hash });
+    errdefer gpa.free(etag);
 
     return .{
         .allocator = gpa,
+        .uncompressed_length = hasher.hasher.total_len,
         .compressed_data = try w.toOwnedSlice(),
         .etag = etag,
         .last_modified = tempora.now_utc(io).dt,
@@ -53,13 +56,13 @@ pub fn get(request: *http.Request, root: Root, arena: std.mem.Allocator) !void {
 
     if (request.check_accept_encoding(.deflate)) {
         try request.set_response_header("content-encoding", "deflate");
-        try request.respond(root.compressed_data);
+        try request.respond_ranged(root.compressed_data, .{});
     } else {
         var compressed_reader = std.Io.Reader.fixed(root.compressed_data);
         var decompress: std.http.Decompress = undefined;
         const decompress_buffer = try arena.alloc(u8, std.compress.flate.max_window_len);
         decompress = .{ .flate = .init(&compressed_reader, .zlib, decompress_buffer) };
-        _ = try decompress.flate.reader.streamRemaining(try request.response_writer());
+        _ = try decompress.flate.reader.streamRemaining(try request.response_writer_ranged(root.uncompressed_length, .{}));
     }
 }
 

@@ -254,7 +254,7 @@ pub fn report_hit(request: *http.Request, server_stats: *Server_Stats, entry: *C
         log.info("{f}: took {f} (XFF: {f})", .{
             request.cid,
             std.Io.Duration.fromMilliseconds(request_duration),
-            std.zig.fmtString(header.value),
+            std.zig.fmtString(header),
         });
     } else {
         log.info("{f}: took {f}", .{

@@ -286,14 +286,12 @@ const Injector = dizzy.Injector(struct {
         return ctx.request;
     }
 
-    pub fn inject_allocator(ctx: Context) error{InsufficientResources}!std.mem.Allocator {
-        try ctx.request.replace_arena();
-        return ctx.request.arena;
+    pub fn inject_allocator(ctx: Context) std.mem.Allocator {
+        return ctx.request.arena();
     }
 
     pub fn inject_temp_allocator(ctx: Context) error{InsufficientResources}!*Temp_Allocator {
-        try ctx.request.replace_arena();
-        return &ctx.request.internal.ta_pool.allocators[ctx.request.internal.ta_pool.index.?];
+        return try ctx.request.temp_allocator();
     }
 
     pub fn inject_io(ctx: Context) std.Io {

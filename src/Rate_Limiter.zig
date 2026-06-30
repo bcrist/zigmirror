@@ -27,7 +27,7 @@ pub fn get(self: *Rate_Limiter, request: *http.Request) !void {
         if (request.get_header("x-forwarded-for")) |header| {
             const now = request.received_dt.with_offset(0).timestamp_ms();
 
-            var iter = std.mem.tokenizeAny(u8, header.value, ", ");
+            var iter = std.mem.tokenizeAny(u8, header, ", ");
             var n: usize = 0;
             while (iter.next()) |ip_str| {
                 n += 1;

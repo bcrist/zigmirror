@@ -35,7 +35,7 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
         if (ref.ptr.bytes) |bytes| {
             if (request.req.head.method == .HEAD) {
                 try headers.check_and_set_headers(request, ref.ptr);
-                try request.respond("");
+                try request.respond_ranged("", .{});
                 if (index.is_outdated_by_artifact(request.io, request.received_dt, artifact)) {
                     _ = try request.chain("regenerate_index");
                 }
@@ -99,19 +99,26 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
                 defer server_stats.release_transfer_speed(transfer_speed_ptr);
 
                 request.response.content_length = bytes;
-                const writer: *std.Io.Writer = try request.response_writer();
+                const writer: *std.Io.Writer = try request.response_writer_ranged(bytes, .{
+                    .ignore_bad_range = false,
+                    .ignore_range_not_satisfiable = false,
+                });
 
-                var begin_ts: std.Io.Timestamp = .now(request.io, .awake);
+                var last_reported_transfer_speed =std.Io.Timestamp.now(request.io, .awake).subDuration(.fromSeconds(1));
+                var bytes_since_last_reported_transfer_speed: usize = 0;
+
                 var limit: std.Io.Limit = .limited(64 * 1024);
-
                 var total_bytes_written: usize = 0;
+                var supports_sendfile = true;
 
                 while (!file_reader.atEnd()) {
-                    const bytes_written = writer.sendFile(&file_reader, limit) catch |err| switch (err) {
+                    const result = if (supports_sendfile) writer.sendFile(&file_reader, limit) else writer.sendFileReading(&file_reader, limit);
+                    const bytes_written = result catch |err| switch (err) {
                         error.EndOfStream => break,
-                        error.Unimplemented => bytes: {
+                        error.Unimplemented => {
                             file_reader.mode = file_reader.mode.toSimple();
-                            break :bytes try writer.sendFileReading(&file_reader, limit);
+                            supports_sendfile = false;
+                            continue;
                         },
                         error.ReadFailed => {
                             if (file_reader.err) |e| if (e == error.Canceled) return e;
@@ -134,26 +141,32 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
                     };
 
                     const end_ts: std.Io.Timestamp = .now(request.io, .awake);
-                    if (bytes_written > 0) {
-                        const duration_us: f32 = @floatFromInt(begin_ts.durationTo(end_ts).toMicroseconds());
-                        const bps = 1000_000 * @as(f32, @floatFromInt(bytes_written)) / duration_us;
 
+                    if (bytes_written > 0) {
+                        bytes_since_last_reported_transfer_speed += bytes_written;
                         total_bytes_written += bytes_written;
 
-                        server_stats.update_transfer_speed(transfer_speed_ptr, bps);
+                        const duration_us: f32 = @floatFromInt(last_reported_transfer_speed.durationTo(end_ts).toMicroseconds());
+                        if (duration_us >= 1_000_000) {
+                            const bps = 1000_000 * @as(f32, @floatFromInt(bytes_since_last_reported_transfer_speed)) / duration_us;
 
-                        log.debug("{f}: Transferring at {d:.1} via sendfile, total transferred so far: {f}", .{
-                            request.cid,
-                            fmt.si.value(bps, "B/s"),
-                            fmt.bytes(total_bytes_written),
-                        });
+                            server_stats.update_transfer_speed(transfer_speed_ptr, bps);
 
-                        if (!std.math.isInf(bps) and !std.math.isNan(bps)) {
-                            limit = .limited(@max(4096, @as(usize, @intFromFloat(bps))));
+                            log.debug("{f}: Transferring at {d:.1} via {s}, total transferred so far: {f}", .{
+                                request.cid,
+                                fmt.si.value(bps, "B/s"),
+                                if (supports_sendfile) "sendFile" else "sendFileReading",
+                                fmt.bytes(total_bytes_written),
+                            });
+
+                            if (!std.math.isInf(bps) and !std.math.isNan(bps)) {
+                                limit = .limited(@max(4096, @as(usize, @intFromFloat(bps))));
+                            }
+
+                            last_reported_transfer_speed = end_ts;
+                            bytes_since_last_reported_transfer_speed = 0;
                         }
                     }
-
-                    begin_ts = end_ts;
                 }
 
                 if (total_bytes_written != bytes) {

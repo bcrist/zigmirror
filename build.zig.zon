@@ -1,7 +1,7 @@
 .{
     .name = .zigmirror,
     .fingerprint = 0xe8542ef7ee8a8b70,
-    .version = "1.2.16",
+    .version = "1.2.17",
     .minimum_zig_version = "0.17.0-dev.812+5434f85c4",
     .paths = .{
         "src",
@@ -13,16 +13,16 @@
     },
     .dependencies = .{
         .Temp_Allocator = .{
-            .url = "git+https://codeberg.org/bcrist/zig-tempallocator#a19ebfecc2fa0345f47d981a708bf945cc78ce49",
-            .hash = "Temp_Allocator-1.1.0-tT3p3Cg7AACYwqsy6Y64tEhmJbfkZPGd_PlCuKVWjc9S",
+            .url = "git+https://codeberg.org/bcrist/zig-tempallocator#a2cce90653e90229ef0b5b524d5836f4109166c7",
+            .hash = "Temp_Allocator-1.2.1-tT3p3FNPAADSDF24Ply7XloHNoGgB4e9UyC4wc188yul",
         },
         .fmt_helper = .{
             .url = "git+https://codeberg.org/bcrist/zig-fmthelper#bb1172251aa56bb5eab75b4cbfa0c6f78863c4e2",
             .hash = "fmt_helper-0.2.1-yH32_V5sAADF1sx7LkROCBNt2joIdTU_5eenKsaHYVrr",
         },
         .shittip = .{
-            .url = "git+https://codeberg.org/bcrist/shittip?ref=zig-master#d85592c9754c73602eaf87cd34b274fb7e9552d3",
-            .hash = "shittip-0.4.8-l5sQcfIGAgCfJyqSsq_P-bWEitvOoNFU5KyyOTpe_NVO",
+            .url = "git+https://codeberg.org/bcrist/shittip?ref=zig-master#7b0f7d70b77f9065e3e82dcd89ab2f2f8dfb618f",
+            .hash = "shittip-0.5.1-l5sQcad_AgCTnaFHmxiEuUBcoxn-SAug6YRu3d1obqw8",
         },
         .sx = .{
             .url = "git+https://codeberg.org/bcrist/zig-sx?ref=zig-master#7d70252b6a804bd1bf014aed07a16199354253bb",
