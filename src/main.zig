@@ -40,6 +40,9 @@ pub fn main(init: std.process.Init) !void {
 
     for (config.listen) |host_and_port| {
         try server.lookup_and_start(host_and_port.host, host_and_port.port, .{ .start_options = .{
+            .listen_options = .{
+                .reuse_address = true,
+            },
             .temp_allocator_pool_size = 100,
             .temp_allocator_reservation_size = 1024 * 1024,
             .request_timeout = .fromSeconds(config.request_timeout_seconds),
