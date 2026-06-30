@@ -48,22 +48,24 @@ pub fn send_slice(
             bytes_since_last_reported_transfer_speed.* += bytes_written;
 
             const duration_us: f32 = @floatFromInt(last_reported_transfer_speed.durationTo(end_ts).toMicroseconds());
-            const bps = 1000_000 * @as(f32, @floatFromInt(bytes_written)) / duration_us;
+            if (duration_us >= 1_000_000) {
+                const bps = 1000_000 * @as(f32, @floatFromInt(bytes_written)) / duration_us;
 
-            server_stats.update_transfer_speed(transfer_speed_ptr, bps);
+                server_stats.update_transfer_speed(transfer_speed_ptr, bps);
 
-            log.debug("{f}: Transferring at {d:.1}, total transferred so far: {f}", .{
-                request.cid,
-                fmt.si.value(bps, "B/s"),
-                fmt.bytes(reader.seek),
-            });
+                log.debug("{f}: Transferring at {d:.1}, total transferred so far: {f}", .{
+                    request.cid,
+                    fmt.si.value(bps, "B/s"),
+                    fmt.bytes(reader.seek),
+                });
 
-            if (!std.math.isInf(bps) and !std.math.isNan(bps)) {
-                limit.* = .limited(@max(4096, @as(usize, @intFromFloat(bps))));
+                if (!std.math.isInf(bps) and !std.math.isNan(bps)) {
+                    limit.* = .limited(@max(4096, @as(usize, @intFromFloat(bps))));
+                }
+
+                last_reported_transfer_speed.* = end_ts;
+                bytes_since_last_reported_transfer_speed.* = 0;
             }
-
-            last_reported_transfer_speed.* = end_ts;
-            bytes_since_last_reported_transfer_speed.* = 0;
         }
 
         if (reader.buffered().len < limit.toInt().?) return reader.seek;
