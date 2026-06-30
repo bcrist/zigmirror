@@ -130,6 +130,7 @@ fn upstream(transfer: *Upstream_Transfer, io: std.Io, maybe_cid: ?http.Connectio
             },
             .not_found => {
                 ref.ptr.data = .none;
+                ref.ptr.requests.hit_not_found(begin);
             },
             .complete => {
                 const total_bytes = transfer.bytes_available.load(.acquire);

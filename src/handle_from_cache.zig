@@ -8,7 +8,9 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
 
         switch (ref.ptr.data) {
             .none => {
-                if (now - ref.ptr.requests.last_time.load(.monotonic) < config.upstream.recheck_not_found_after_seconds * 1000) {
+                // there is a race where another thread may not have updated the last request time yet, so it's at the default of std.minInt(i64), causing an overflow
+                const ms_since_last_checked: i64 = std.math.sub(i64, now, ref.ptr.requests.last_time.load(.monotonic)) catch 0;
+                if (ms_since_last_checked < config.upstream.recheck_not_found_after_seconds * 1000) {
                     ref.ptr.requests.hit_not_found(now);
                     return error.NotFound;
                 }
