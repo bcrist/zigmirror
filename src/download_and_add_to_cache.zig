@@ -181,7 +181,7 @@ fn downstream(request: *http.Request, artifact: Artifact, cache: *Caches, server
                             last_reported_transfer_speed = std.Io.Timestamp.now(request.io, .awake).subDuration(.fromSeconds(1));
                             headers_set = true;
                         }
-                        sent_bytes += try downstream_transfer.send_slice(request, transfer.data[sent_bytes..available_bytes], transfer.data.len, server_stats, transfer_speed_ptr, &limit, &bytes_since_last_reported_transfer_speed, &last_reported_transfer_speed);
+                        sent_bytes += try downstream_transfer.send_slice(request, transfer.data[sent_bytes..available_bytes], transfer.data.len, server_stats, transfer_speed_ptr, &limit, sent_bytes, &bytes_since_last_reported_transfer_speed, &last_reported_transfer_speed);
                     } else {
                         const timeout: std.Io.Timeout = .{ .duration = .{ .raw = .fromSeconds(1), .clock = .awake } };
                         std.Io.futexWaitTimeout(request.io, u32, &transfer.bytes_available.raw, available_bytes, timeout) catch |err| switch (err) {
@@ -198,7 +198,7 @@ fn downstream(request: *http.Request, artifact: Artifact, cache: *Caches, server
                             try downstream_transfer.respond_slice(request, transfer.data, server_stats);
                         } else {
                             while (sent_bytes < transfer.data.len) {
-                                sent_bytes += downstream_transfer.send_slice(request, transfer.data[sent_bytes..], transfer.data.len, server_stats, transfer_speed_ptr, &limit, &bytes_since_last_reported_transfer_speed, &last_reported_transfer_speed) catch |err| switch (err) {
+                                sent_bytes += downstream_transfer.send_slice(request, transfer.data[sent_bytes..], transfer.data.len, server_stats, transfer_speed_ptr, &limit, sent_bytes, &bytes_since_last_reported_transfer_speed, &last_reported_transfer_speed) catch |err| switch (err) {
                                     error.EndOfStream => break,
                                     else => |e| return e,
                                 };

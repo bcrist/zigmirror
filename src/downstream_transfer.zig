@@ -8,13 +8,15 @@ pub fn respond_slice(request: *http.Request, data: []const u8, server_stats: *Se
     var remaining = data;
     var last_reported_transfer_speed = std.Io.Timestamp.now(request.io, .awake).subDuration(.fromSeconds(1));
     var bytes_since_last_reported_transfer_speed: usize = 0;
+    var total_bytes_written: usize = 0;
     var limit: std.Io.Limit = .limited(64 * 1024);
     while (true) {
-        const bytes_written = send_slice(request, remaining, data.len, server_stats, transfer_speed_ptr, &limit, &bytes_since_last_reported_transfer_speed, &last_reported_transfer_speed) catch |err| switch (err) {
+        const bytes_written = send_slice(request, remaining, data.len, server_stats, transfer_speed_ptr, &limit, total_bytes_written, &bytes_since_last_reported_transfer_speed, &last_reported_transfer_speed) catch |err| switch (err) {
             error.EndOfStream => break,
             else => |e| return e,
         };
         remaining = remaining[bytes_written..];
+        total_bytes_written += bytes_written;
     }
 
     try request.end_response();
@@ -27,6 +29,7 @@ pub fn send_slice(
     server_stats: *Server_Stats,
     transfer_speed_ptr: ?*f32,
     limit: *std.Io.Limit,
+    total_bytes_written: usize,
     bytes_since_last_reported_transfer_speed: *usize,
     last_reported_transfer_speed: *std.Io.Timestamp,
 ) !usize {
@@ -49,14 +52,14 @@ pub fn send_slice(
 
             const duration_us: f32 = @floatFromInt(last_reported_transfer_speed.durationTo(end_ts).toMicroseconds());
             if (duration_us >= 1_000_000) {
-                const bps = 1000_000 * @as(f32, @floatFromInt(bytes_written)) / duration_us;
+                const bps = 1000_000 * @as(f32, @floatFromInt(bytes_since_last_reported_transfer_speed.*)) / duration_us;
 
                 server_stats.update_transfer_speed(transfer_speed_ptr, bps);
 
                 log.debug("{f}: Transferring at {d:.1}, total transferred so far: {f}", .{
                     request.cid,
                     fmt.si.value(bps, "B/s"),
-                    fmt.bytes(reader.seek),
+                    fmt.bytes(total_bytes_written + bytes_written),
                 });
 
                 if (!std.math.isInf(bps) and !std.math.isNan(bps)) {
