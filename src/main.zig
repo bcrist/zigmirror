@@ -269,8 +269,23 @@ const Injector = dizzy.Injector(struct {
     }
 
     pub fn inject_artifact(ctx: Context) ?Artifact {
-        const artifact = Artifact.maybe_parse(ctx.request.target.path_remaining) orelse return null;
+        var iter = std.mem.splitScalar(u8, ctx.request.target.path_remaining, '/');
+        const first = iter.next() orelse return null;
+        const second = iter.next();
+        if (iter.next() != null) return null;
+
+        const artifact = Artifact.maybe_parse(if (second) |filename| filename else first) orelse return null;
         if (artifact.artifact_type == .devkit and !ctx.context.config.allow_devkit_artifacts) return null;
+
+        if (second != null) {
+            const path_version = std.SemanticVersion.parse(first) catch return null;
+            if (path_version.order(artifact.version()) != .eq) return null;
+            if (artifact.build) |build| {
+                const path_build = path_version.build orelse return null;
+                if (!std.mem.eql(u8, build.slice(&artifact.buf), path_build)) return null;
+            } else if (path_version.build != null) return null;
+        }
+
         return artifact;
     }
 
