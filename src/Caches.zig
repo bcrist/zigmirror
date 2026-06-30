@@ -207,7 +207,6 @@ pub fn maybe_evict_from_fs_cache(fs_cache: *Cache, server_stats: *Server_Stats, 
 
     evict_from_fs_cache(fs_cache, server_stats, artifact_to_remove, cache_path) catch |err| switch (err) {
         error.Canceled => |e| return e,
-        else => log.warn("Error while trying to evict {f} from fs cache: {t}", .{ artifact_to_remove, err }),
     };
 }
 
@@ -225,14 +224,14 @@ pub fn evict_from_fs_cache(fs_cache: *Cache, server_stats: *Server_Stats, artifa
     try evict_from_fs_cache_dir(fs_cache, server_stats, artifact, cache_dir);
 }
 
-pub fn evict_from_fs_cache_dir(fs_cache: *Cache, server_stats: *Server_Stats, artifact: Artifact, cache_dir: std.Io.Dir) !void {
+pub fn evict_from_fs_cache_dir(fs_cache: *Cache, server_stats: *Server_Stats, artifact: Artifact, cache_dir: std.Io.Dir) error{Canceled}!void {
     log.debug("evict_from_fs_cache_dir {f}", .{ artifact });
     if (try fs_cache.remove(artifact)) |ref| {
         defer ref.unlock();
         _ = server_stats.cache_evictions_fs.fetchAdd(1, .monotonic);
 
-        var filename_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
-        const filename = try std.fmt.bufPrint(&filename_buf, "{f}", .{ artifact });
+        var filename_buf: [Artifact.max_filename_length]u8 = undefined;
+        const filename = std.fmt.bufPrint(&filename_buf, "{f}", .{ artifact }) catch unreachable;
         cache_dir.deleteFile(fs_cache.io, filename) catch |err| switch (err) {
             error.Canceled => |e| return e,
             else => |e| {
@@ -348,31 +347,6 @@ pub fn load_fs_cache(fs_cache: *Cache, server_stats: *Server_Stats, cache_path: 
 
             if (artifact.artifact_type == .devkit and !allow_devkit_artifacts) continue;
 
-            var file = try cache_dir.openFile(fs_cache.io, entry.name, .{});
-            defer file.close(fs_cache.io);
-
-            var hash_buf: [16384]u8 = undefined;
-            var reader = file.reader(fs_cache.io, &hash_buf);
-            var hasher: std.crypto.hash.sha2.Sha256 = .init(.{});
-
-            while (!reader.atEnd()) {
-                reader.interface.fillMore() catch |err| switch (err) {
-                    error.EndOfStream => break,
-                    error.ReadFailed => {
-                        log.err("Failed to calculate SHA256 for artifact {f}: {t}", .{ artifact, reader.err orelse error.ReadFailed });
-                        continue;
-                    },
-                };
-                const buffered = reader.interface.buffered();
-                hasher.update(buffered);
-                reader.interface.toss(buffered.len);
-            }
-
-            if (hasher.total_len != stat.size) {
-                log.err("Failed to calculate SHA256 for artifact {f}: expected {} bytes but found {}", .{ artifact, stat.size, hasher.total_len });
-                continue;
-            }
-
             const fs_ref: Cache.Entry.Ref = for (0..100) |_| {
                 if (try fs_cache.get_or_add(artifact)) |ref| break ref;
                 try maybe_evict_from_fs_cache(fs_cache, server_stats, cache_path);
@@ -383,7 +357,7 @@ pub fn load_fs_cache(fs_cache: *Cache, server_stats: *Server_Stats, cache_path: 
 
             const bytes: u32 = @intCast(stat.size);
             fs_ref.ptr.bytes = bytes;
-            fs_ref.ptr.hash = hasher.finalResult();
+            fs_ref.ptr.hash = null;
             fs_ref.ptr.requests.first_time.store(startup_time, .monotonic);
             fs_ref.ptr.requests.last_time.store(startup_time, .monotonic);
             fs_ref.ptr.requests.count.store(1, .monotonic);
@@ -442,26 +416,33 @@ fn load_fs_cache_metadata_internal(fs_cache: *Cache, cache_dir: std.Io.Dir, sxr:
             const hash_hex = try sxr.require_any_string();
             try sxr.require_close();
 
-            if (ref.ptr.hash) |computed_hash| {
-                if (hash_hex.len == computed_hash.len * 2) {
-                    const hash_matches = for (0.., computed_hash) |i, hash_byte| {
-                        const found_byte = std.fmt.parseInt(u8, hash_hex[i * 2 ..][0..2], 16) catch break false;
-                        if (found_byte != hash_byte) break false;
-                    } else true;
+            var found_hash_bytes: [std.crypto.hash.sha2.Sha256.digest_length]u8 = undefined;
+            var found_valid_hash = false;
+            if (hash_hex.len == found_hash_bytes.len * 2) {
+                for (0.., &found_hash_bytes) |i, *hash_byte| {
+                    hash_byte.* = std.fmt.parseInt(u8, hash_hex[i * 2 ..][0..2], 16) catch break;
+                } else {
+                    found_valid_hash = true;
+                }
+            }
 
-                    if (!hash_matches) {
+            if (found_valid_hash) {
+                if (ref.ptr.hash) |computed_hash| {
+                    if (!std.mem.eql(u8, &found_hash_bytes, &computed_hash)) {
                         log.err("Artifact hash from persisted metadata doesn't match file contents for {s}", .{ artifact_name });
                         try evict_from_fs_cache_dir(fs_cache, server_stats, artifact, cache_dir);
                         try sxr.ignore_remaining_expression();
                         continue;
                     }
                 } else {
-                    log.warn("Ignoring invalid persisted artifact hash for {s}: expected length {}; found {}", .{
-                        artifact_name,
-                        computed_hash.len * 2,
-                        hash_hex.len,
-                    });
+                    ref.ptr.hash = found_hash_bytes;
                 }
+            } else {
+                log.warn("Ignoring invalid persisted artifact hash for {s}: expected length {}; found {}", .{
+                    artifact_name,
+                    found_hash_bytes.len * 2,
+                    hash_hex.len,
+                });
             }
         }
 
@@ -507,6 +488,69 @@ fn load_fs_cache_metadata_internal(fs_cache: *Cache, cache_dir: std.Io.Dir, sxr:
 
     try sxr.require_close();
     try sxr.require_done();
+}
+
+pub fn validate_fs_cache(cache: *Caches, server_stats: *Server_Stats, cache_path: []const u8) !void {
+    var cache_dir = try std.Io.Dir.cwd().createDirPathOpen(cache.fs.io, cache_path, .{});
+    defer cache_dir.close(cache.fs.io);
+
+    var filename_buf: [Artifact.max_filename_length]u8 = undefined;
+
+    for (cache.fs.entries) |*entry| {
+        const artifact: Artifact, const expected_len: usize, const expected_hash: [std.crypto.hash.sha2.Sha256.digest_length]u8 = e: {
+            const ref: Cache.Entry.Ref = .init(cache.fs.io, entry, .exclusive);
+            try ref.lock();
+            defer ref.unlock();
+            const artifact = ref.ptr.artifact orelse continue;
+            const bytes = ref.ptr.bytes orelse 0;
+            const hash: [std.crypto.hash.sha2.Sha256.digest_length]u8 = ref.ptr.hash orelse @splat(0);
+            break :e .{ artifact, bytes, hash };
+        };
+        
+        const filename = std.fmt.bufPrint(&filename_buf, "{f}", .{ artifact }) catch unreachable;
+        const cache_file = cache_dir.openFile(cache.fs.io, filename, .{ .lock = .shared }) catch |err| switch (err) {
+            error.Canceled => |e| return e,
+            else => |e| {
+                log.err("validate: {f}: Failed to open file from fs cache: {t}", .{ artifact, e });
+                try evict_from_fs_cache_dir(&cache.fs, server_stats, artifact, cache_dir);
+                return;
+            },
+        };
+        defer cache_file.close(cache.fs.io);
+
+        var hash_buf: [16384]u8 = undefined;
+        var reader = cache_file.reader(cache.fs.io, &hash_buf);
+        var hasher: std.crypto.hash.sha2.Sha256 = .init(.{});
+
+        while (!reader.atEnd()) {
+            reader.interface.fillMore() catch |err| switch (err) {
+                error.EndOfStream => break,
+                error.ReadFailed => {
+                    log.err("validate: {f}: Failed to calculate SHA256: {t}", .{ artifact, reader.err orelse error.ReadFailed });
+                    try evict_from_fs_cache_dir(&cache.fs, server_stats, artifact, cache_dir);
+                    continue;
+                },
+            };
+            const buffered = reader.interface.buffered();
+            hasher.update(buffered);
+            reader.interface.toss(buffered.len);
+        }
+
+        if (hasher.total_len != expected_len) {
+            log.err("validate: {f}: expected {} bytes but found {}", .{ artifact, expected_len, hasher.total_len });
+            try evict_from_fs_cache_dir(&cache.fs, server_stats, artifact, cache_dir);
+            continue;
+        }
+
+        const found_hash = hasher.finalResult();
+        if (!std.mem.eql(u8, &expected_hash, &found_hash)) {
+            log.err("validate: {f}: SHA25 mismatch; expected {x} bytes but found {x}", .{ artifact, &expected_hash, &found_hash });
+            try evict_from_fs_cache_dir(&cache.fs, server_stats, artifact, cache_dir);
+            continue;
+        }
+
+        log.debug("validate: {f}: File size and SHA256 matches expectation", .{ artifact });
+    }
 }
 
 const Caches = @This();

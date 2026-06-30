@@ -127,9 +127,6 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
 
                             Caches.evict_from_fs_cache(&cache.fs, server_stats, artifact, config.cache.fs.path) catch |err2| switch (err2) {
                                 error.Canceled => |e| return e,
-                                else => {
-                                    log.warn("{f}: Failed to evict {f} from fs cache after failed sendfile: {t}", .{ request.cid, artifact, err2 });
-                                },
                             };
 
                             if (file_reader.err) |e| return e;

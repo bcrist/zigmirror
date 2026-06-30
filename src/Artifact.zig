@@ -173,6 +173,16 @@ pub fn version_order(lhs: *const Artifact, rhs: Artifact) std.math.Order {
     }
 }
 
+pub const max_filename_length: usize = @as(usize, @max(
+    source_prefix.len,
+    bootstrap_prefix.len,
+    build_prefix.len,
+    devkit_prefix.len,
+)) + (1 + std.math.log10(std.math.maxInt(u16))) * 3 // major, minor, patch
+  + 5 // 2 '.', '-', and '+' in semver, plus '-' after target in build/devkit
+  + buffer_len // target string and pre/build semver fields
+  + Extension.max_length;
+
 pub fn format(self: *const Artifact, writer: *std.Io.Writer) std.Io.Writer.Error!void {
     switch (self.artifact_type) {
         .source => try writer.writeAll(source_prefix),
@@ -299,6 +309,14 @@ pub const Extension = enum {
             .txz_minisig, .zip_minisig => self,
         };
     }
+
+    pub const max_length: usize = l: {
+        var longest: usize = 0;
+        for (std.enums.values(Extension)) |v| {
+            longest = @max(longest, v.slice().len);
+        }
+        break :l longest;
+    };
 
     pub fn format(self: Extension, writer: *std.Io.Writer) std.Io.Writer.Error!void {
         try writer.writeAll(self.slice());

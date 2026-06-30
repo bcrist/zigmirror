@@ -21,6 +21,8 @@ pub fn main(init: std.process.Init) !void {
     var server: Server = .init(&loop, try .init(loop.io, init.gpa, &config));
     defer server.deinit();
 
+    const ctx = &server.injector_context;
+
     try server.router("", .{
         http.routing.resource("style.css"),
         .{ "/", headers.set_server_and_date, Module(Root) },
@@ -48,19 +50,21 @@ pub fn main(init: std.process.Init) !void {
     loop.io.sleep(.fromSeconds(1), .awake) catch {};
     service_integration.ready(&loop);
 
+    try ctx.cache.validate_fs_cache(&ctx.server_stats, config.cache.fs.path);
+
     if (config.request_rate_limit) |rlconfig| {
         try server.tasks.group.concurrent(loop.io, rate_limit_cleanup_task, .{
             loop.io,
             rlconfig.cleanup_interval_seconds,
-            &server.injector_context.rate_limiter,
+            &ctx.rate_limiter,
         });
     }
 
     if (config.cache.mem.periodic_eviction) |_| {
         try server.tasks.group.concurrent(loop.io, mem_cache_cleanup_task, .{
             loop.io,
-            &server.injector_context.cache,
-            &server.injector_context.server_stats,
+            &ctx.cache,
+            &ctx.server_stats,
             &config,
         });
     }
@@ -68,10 +72,10 @@ pub fn main(init: std.process.Init) !void {
     if (config.upstream.recheck_expired_index_interval_seconds > 0) {
         try server.tasks.group.concurrent(loop.io, recheck_index_task, .{
             &loop,
-            &server.injector_context.index,
-            &server.injector_context.cache,
-            &server.injector_context.downloads,
-            &server.injector_context.server_stats,
+            &ctx.index,
+            &ctx.cache,
+            &ctx.downloads,
+            &ctx.server_stats,
             &config,
         });
     }
@@ -80,8 +84,8 @@ pub fn main(init: std.process.Init) !void {
         signal_handler_io = loop.io;
         try server.tasks.group.concurrent(loop.io, signal_handler_shutdown_task, .{
             &loop,
-            &server.injector_context.cache,
-            &server.injector_context.server_stats,
+            &ctx.cache,
+            &ctx.server_stats,
             &config,
         });
         
@@ -312,6 +316,7 @@ pub const std_options: std.Options = .{
         .{ .scope = .sx, .level = .warn },
         .{ .scope = .zkittle, .level = .info },
         .{ .scope = .locking, .level = .info },
+        .{ .scope = .http, .level = .info },
     },
 };
 
