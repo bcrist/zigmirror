@@ -250,13 +250,13 @@ pub fn report_hit(request: *http.Request, server_stats: *Server_Stats, entry: *C
     const request_duration: u32 = @intCast(std.math.clamp(end - now, 0, std.math.maxInt(u32)));
 
     if (request.get_header("x-forwarded-for")) |header| {
-        log.info("{f}: took {f} (XFF: {f})", .{
+        log.debug("{f}: artifact download took {f} (XFF: {f})", .{
             request.cid,
             std.Io.Duration.fromMilliseconds(request_duration),
             std.zig.fmtString(header),
         });
     } else {
-        log.info("{f}: took {f}", .{
+        log.debug("{f}: artifact download took {f}", .{
             request.cid,
             std.Io.Duration.fromMilliseconds(request_duration),
         });

@@ -1,7 +1,7 @@
 .{
     .name = .zigmirror,
     .fingerprint = 0xe8542ef7ee8a8b70,
-    .version = "1.2.26",
+    .version = "1.2.27",
     .minimum_zig_version = "0.17.0-dev.812+5434f85c4",
     .paths = .{
         "src",
@@ -21,8 +21,8 @@
             .hash = "fmt_helper-0.2.1-yH32_V5sAADF1sx7LkROCBNt2joIdTU_5eenKsaHYVrr",
         },
         .shittip = .{
-            .url = "git+https://codeberg.org/bcrist/shittip?ref=zig-master#a4a001fd7f05c892bfa05288cc7ca1485ca9d98d",
-            .hash = "shittip-0.5.2-l5sQcaN_AgD5BXwT_g5o-Rkg7lWbXozhGIxrqug--egW",
+            .url = "git+https://codeberg.org/bcrist/shittip?ref=zig-master#a90cccb2266429831a20c01432e6fd0156cd3f65",
+            .hash = "shittip-0.5.3-l5sQcZSJAgDdtOesZh8mM8OOQsTYYdkzXwMQIVFZMiPb",
         },
         .sx = .{
             .url = "git+https://codeberg.org/bcrist/zig-sx?ref=zig-master#7d70252b6a804bd1bf014aed07a16199354253bb",

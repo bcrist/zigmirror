@@ -325,7 +325,11 @@ const Injector = dizzy.Injector(struct {
     }
 }, .{ .Input_Type = Context });
 
-const Server = http.Server(Injector, .{ .connection_write_buffer_bytes = 64 * 1024 });
+const Server = http.Server(Injector, .{
+    .connection_write_buffer_bytes = 64 * 1024,
+    .timing_log_warn_threshold = .fromSeconds(60),
+    .timing_log_info_threshold = .fromSeconds(10),
+});
 const Module = http.routing.Module(Injector);
 const rate_limiter = Module(Rate_Limiter);
 
@@ -335,6 +339,8 @@ pub const std_options: std.Options = .{
         .{ .scope = .zkittle, .level = .info },
         .{ .scope = .locking, .level = .info },
         .{ .scope = .http, .level = .info },
+        .{ .scope = .http_mem, .level = .warn },
+        .{ .scope = .http_timing, .level = .info },
     },
 };
 
