@@ -1,8 +1,3 @@
-pub fn set_server_and_date(request: *http.Request) !void {
-    try request.set_response_header("server", try request.fmt("zigmirror {f}", .{ build_options.version }));
-    try request.try_set_date();
-}
-
 /// Assumes ref is locked
 pub fn check_and_set_headers(request: *http.Request, entry: *Cache.Entry) !void {
     const request_count = entry.requests.count.load(.monotonic);
@@ -50,9 +45,6 @@ pub fn check_and_set_headers(request: *http.Request, entry: *Cache.Entry) !void 
     }
 }
 
-const log = std.log.scoped(.zigmirror);
-
-const build_options = @import("build_options");
 const Cache = @import("Cache.zig");
 const Artifact = @import("Artifact.zig");
 const tempora = @import("tempora");

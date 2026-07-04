@@ -25,11 +25,12 @@ pub fn main(init: std.process.Init) !void {
 
     try server.router("", .{
         http.routing.resource("style.css"),
-        .{ "/", headers.set_server_and_date, Module(Root) },
-        .{ "/stats", headers.set_server_and_date, Module(@import("stats.zig")) },
+        .{ "/robots.txt", http.routing.static("robots.txt") },
+        .{ "/", rate_limiter, Module(Root) },
+        .{ "/stats", rate_limiter, Module(@import("stats.zig")) },
+        .{ "/index.json", rate_limiter, Module(Index) },
         .{ "/shutdown", Config.shutdown_check, service_integration.stopping, Caches.evict_all_mem, http.routing.shutdown },
-        .{ "/index.json", headers.set_server_and_date, rate_limiter, Module(Index) },
-        .{ "/**", headers.set_server_and_date, rate_limiter, Module(@import("handle_from_cache.zig")) },
+        .{ "/**", rate_limiter, Module(@import("handle_from_cache.zig")) },
     });
 
     try server.register("upstream", Module(@import("download_and_add_to_cache.zig")));
@@ -38,6 +39,7 @@ pub fn main(init: std.process.Init) !void {
     loop.start();
     defer loop.finish_running();
 
+    const server_name = try std.fmt.allocPrint(init.arena.allocator(), "zigmirror/{f}", .{ build_options.version });
     for (config.listen) |host_and_port| {
         try server.lookup_and_start(host_and_port.host, host_and_port.port, .{ .start_options = .{
             .listen_options = .{
@@ -46,6 +48,7 @@ pub fn main(init: std.process.Init) !void {
             .temp_allocator_pool_size = config.max_concurrent_connections,
             .temp_allocator_reservation_size = 1024 * 1024,
             .request_timeout = .fromSeconds(config.request_timeout_seconds),
+            .server_name = server_name,
         }});
     }
 
@@ -104,10 +107,10 @@ pub fn main(init: std.process.Init) !void {
 }
 
 var signal_handler_io: std.Io = undefined;
-var graceful_shutdown_latch: std.Io.Semaphore = .{};
+var graceful_shutdown_latch: std.Io.Event = .unset;
 
 fn signal_handler(_: std.posix.SIG) callconv(.c) void {
-    graceful_shutdown_latch.post(signal_handler_io);
+    graceful_shutdown_latch.set(signal_handler_io);
 }
 
 fn rate_limit_cleanup_task(io: std.Io, period_seconds: i64, rate_limit: *Rate_Limiter) error{Canceled}!void {

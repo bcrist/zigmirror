@@ -41,8 +41,6 @@ pub fn deinit(self: *Root) void {
 }
 
 pub fn get(request: *http.Request, root: Root, arena: std.mem.Allocator) !void {
-    try request.try_set_date();
-
     try request.maybe_add_common_response_headers_comptime(.{
         .content_type = .html_utf8,
     });
