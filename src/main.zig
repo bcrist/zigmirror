@@ -26,7 +26,7 @@ pub fn main(init: std.process.Init) !void {
     try server.router("", .{
         http.routing.resource("style.css"),
         .{ "/robots.txt", http.routing.static("robots.txt") },
-        .{ "/", rate_limiter, Module(Root) },
+        .{ "/", rate_limiter, "root" },
         .{ "/stats", rate_limiter, Module(@import("stats.zig")) },
         .{ "/index.json", rate_limiter, Module(Index) },
         .{ "/shutdown", Config.shutdown_check, service_integration.stopping, Caches.evict_all_mem, http.routing.shutdown },
@@ -35,6 +35,15 @@ pub fn main(init: std.process.Init) !void {
 
     try server.register("upstream", Module(@import("download_and_add_to_cache.zig")));
     try server.register("regenerate_index", Index.regenerate);
+
+    var root: http.Static_Updatable = try .init(init.gpa, threaded_io.io(), "root.zk", .{
+        .hostname = config.public_hostname,
+        .zigmirror_version = build_options.version,
+        .zig_version = @import("builtin").zig_version,
+        .allow_devkits = config.allow_devkit_artifacts,
+    }, .{}, .html_utf8);
+    defer root.deinit();
+    try server.register_module("root", &root);
 
     loop.start();
     defer loop.finish_running();
@@ -188,7 +197,6 @@ const Context = struct {
         config: Config,
         cache: Caches,
         index: Index,
-        root: Root,
         rate_limiter: Rate_Limiter,
         server_stats: Server_Stats,
         downloads: Download_Permission,
@@ -203,9 +211,6 @@ const Context = struct {
             var index: Index = .init(gpa, config);
             errdefer index.deinit();
 
-            var root: Root = try .init(io, gpa, config);
-            errdefer root.deinit();
-
             var server_stats: Server_Stats = try .init(io, gpa, config);
             errdefer server_stats.deinit();
 
@@ -218,7 +223,6 @@ const Context = struct {
                     .fs = fs_cache,
                 },
                 .index = index,
-                .root = root,
                 .rate_limiter = .init(io, gpa, config.request_rate_limit),
                 .server_stats = server_stats,
                 .downloads = .{
@@ -232,7 +236,6 @@ const Context = struct {
 
         pub fn deinit(self: *@This()) void {
             self.server_stats.deinit();
-            self.root.deinit();
             self.index.deinit();
             self.rate_limiter.deinit();
             self.cache.mem.deinit();
@@ -303,10 +306,6 @@ const Injector = dizzy.Injector(struct {
         return &ctx.context.index;
     }
 
-    pub fn inject_root_content(ctx: Context) Root {
-        return ctx.context.root;
-    }
-
     pub fn inject_request(ctx: Context) *http.Request {
         return ctx.request;
     }
@@ -358,7 +357,6 @@ const Artifact = @import("Artifact.zig");
 const Caches = @import("Caches.zig");
 const Cache = @import("Cache.zig");
 const Index = @import("Index.zig");
-const Root = @import("Root.zig");
 const Rate_Limiter = @import("Rate_Limiter.zig");
 const Config = @import("Config.zig");
 const headers = @import("headers.zig");
