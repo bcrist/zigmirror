@@ -2,6 +2,44 @@ io: std.Io,
 upstream_semaphore: std.Io.Semaphore,
 downstream_semaphore: std.Io.Semaphore,
 overload_semaphore: std.Io.Semaphore,
+prewarm_semaphore: std.Io.Semaphore,
+
+pub const Prewarm = struct {
+    io: std.Io,
+    semaphore: *std.Io.Semaphore,
+
+    pub fn init(dl: *Download_Permission, config: *const Config) !Prewarm {
+        return .init_timeout(dl, .{ .duration = .{
+            .clock = .awake,
+            .raw = .fromSeconds(config.prewarm.max_wait_time_seconds),
+        }});
+    }
+
+    pub fn init_timeout(dl: *Download_Permission, timeout: std.Io.Timeout) !Prewarm {
+        dl.prewarm_semaphore.waitTimeout(dl.io, timeout) catch |err| switch (err) {
+            error.Timeout => return error.InsufficientResources,
+            else => |e| return e,
+        };
+        if (comptime std.log.logEnabled(.debug, .locking)) {
+            locking_log.debug("Prewarm download permission acquired ({} available)", .{
+                @atomicLoad(usize, &dl.prewarm_semaphore.permits, .seq_cst),
+            });
+        }
+        return .{
+            .io = dl.io,
+            .semaphore = &dl.prewarm_semaphore,
+        };
+    }
+
+    pub fn deinit(self: Prewarm) void {
+        self.semaphore.post(self.io);
+        if (comptime std.log.logEnabled(.debug, .locking)) {
+            locking_log.debug("Prewarm download permission returned ({} available)", .{
+                @atomicLoad(usize, &self.semaphore.permits, .seq_cst),
+            });
+        }
+    }
+};
 
 pub const Upstream = struct {
     io: std.Io,

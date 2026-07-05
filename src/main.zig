@@ -227,6 +227,7 @@ const Context = struct {
                 .server_stats = server_stats,
                 .downloads = .{
                     .io = io,
+                    .prewarm_semaphore = .{ .permits = config.prewarm.max_connections },
                     .upstream_semaphore = .{ .permits = config.upstream.max_connections },
                     .downstream_semaphore = .{ .permits = config.max_concurrent_downloads },
                     .overload_semaphore = .{ .permits = config.max_concurrent_connections },

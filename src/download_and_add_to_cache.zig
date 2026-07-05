@@ -38,15 +38,30 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
 pub fn prewarm(io: std.Io, gpa: std.mem.Allocator, artifact: Artifact, cache: *Caches, server_stats: *Server_Stats, config: *const Config, downloads: *Download_Permission) error{Canceled}!void {
     // skip if artifact already exists in either cache
     if (try cache.mem.get(artifact, .shared)) |ref| {
-        ref.unlock();
-        return;
+        defer ref.unlock();
+        if (ref.ptr.data != .none) {
+            log.debug("prewarm: {f} already exists in mem cache", .{ artifact });
+            return;
+        }
     }
     if (try cache.fs.get(artifact, .shared)) |ref| {
-        ref.unlock();
-        return;
+        defer ref.unlock();
+        if (ref.ptr.bytes != null) {
+            log.debug("prewarm: {f} already exists in fs cache", .{ artifact });
+            return;
+        }
     }
 
-    const permission = Download_Permission.Upstream.init_timeout(downloads, .{ .duration = .{
+    const prewarm_permission = Download_Permission.Prewarm.init(downloads, config) catch |err| switch (err) {
+        error.Canceled => |e| return e,
+        error.InsufficientResources => {
+            log.warn("prewarm: Timed out waiting for permission to prewarm {f}", .{ artifact });
+            return;
+        },
+    };
+    defer prewarm_permission.deinit();
+
+    const upstream_permission = Download_Permission.Upstream.init_timeout(downloads, .{ .duration = .{
         .clock = .awake,
         .raw = .fromSeconds(config.upstream.recheck_expired_index_interval_seconds),
     }}) catch |err| switch (err) {
@@ -56,20 +71,29 @@ pub fn prewarm(io: std.Io, gpa: std.mem.Allocator, artifact: Artifact, cache: *C
             return;
         },
     };
-    defer permission.deinit();
+    defer upstream_permission.deinit();
 
     // Check caches again since some time may have passed while waiting for permission to do an upstream transfer
     if (try cache.mem.get(artifact, .shared)) |ref| {
-        ref.unlock();
-        return;
+        defer ref.unlock();
+        if (ref.ptr.data != .none) {
+            log.debug("prewarm: {f} already exists in mem cache", .{ artifact });
+            return;
+        }
     }
     if (try cache.fs.get(artifact, .shared)) |ref| {
-        ref.unlock();
-        return;
+        defer ref.unlock();
+        if (ref.ptr.bytes != null) {
+            log.debug("prewarm: {f} already exists in fs cache", .{ artifact });
+            return;
+        }
     }
     
     const upstream_path = artifact.upstream_path(gpa) catch |err| switch (err) {
-        error.OutOfMemory => return,
+        error.OutOfMemory => |e| {
+            log.err("prewarm: {t} while determining upstream path for {f}", .{ e, artifact });
+            return;
+        },
     };
     defer gpa.free(upstream_path);
 

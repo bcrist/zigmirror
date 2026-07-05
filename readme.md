@@ -93,6 +93,5 @@ sudo zig build upgrade -Doptimize=ReleaseSafe -Dupgrade-bin-user=zigmirror
 
 # TODO
 * Tool for testing concurrent downloads, client disconnects, etc.
-* Don't allow prewarm to consume all upload slots
 * Daily graph of requests aggregated by version (with -dev.* versions combined)
     * persist raw data to fs for long term analysis and crash tolerance

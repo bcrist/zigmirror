@@ -109,6 +109,14 @@ upstream: struct {
 /// This is known as prewarming.
 /// Note: when using prewarming, you should make sure that either cache.mem.max_entries is large enough to hold all prewarmed artifacts, or cache.fs.min_requests == 1.
 prewarm: struct {
+    /// Limits the numbe of concurrent prewarm downloads that may be running concurrently.
+    /// Prewarm connections also count towards upstream.max_connections, so prewarm.max_connections > upstream.max_connections is equivalent to prewarm.max_connections == upstream.max_connections.
+    /// If set to 0, prewarming will be disabled.
+    max_connections: u32 = 1,
+    
+    /// The maximum amount of time a prewarm request can wait for a slot in `prewarm.max_connections` to open up.
+    max_wait_time_seconds: u32 = 45 * std.time.s_per_min,
+
     /// Any versions in index.json that are earlier than this will not be prewarmed.
     /// In addition to a semantic version, this may be set to `master` to only prewarm the most recent nightly artifacts.
     min_version: []const u8 = "0.14.1",

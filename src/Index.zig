@@ -264,6 +264,8 @@ const Content = struct {
 
 /// N.B. Assumes config.prewarm.min_version has already been checked!
 pub fn prewarm_artifact(loop: *http.Loop, artifact: Artifact, cache: *Caches, server_stats: *Server_Stats, config: *const Config, downloads: *Download_Permission) error{Canceled}!void {
+    if (config.prewarm.max_connections == 0) return;
+
     switch (artifact.artifact_type) {
         .source => if (!config.prewarm.source) return,
         .bootstrap => if (!config.prewarm.bootstrap) return,
@@ -276,6 +278,8 @@ pub fn prewarm_artifact(loop: *http.Loop, artifact: Artifact, cache: *Caches, se
         },
         .devkit => return,
     }
+
+    log.debug("prewarm: scheduling {f}", .{ artifact });
 
     loop.concurrent(download_and_add_to_cache.prewarm, .{ loop.io, loop.gpa, artifact, cache, server_stats, config, downloads }) catch |err| switch (err) {
         error.Canceled => |e| return e,
