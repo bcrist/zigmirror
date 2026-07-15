@@ -3,6 +3,10 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
 
     const now = request.received_dt.with_offset(0).timestamp_ms();
 
+    if (request.get_header("range")) |range_header| {
+        log.info("{f}: Client requested range: {f}", .{ request.cid, std.zig.fmtString(range_header) });
+    }
+
     if (try cache.mem.get(artifact, .shared)) |ref| {
         defer ref.unlock();
 
