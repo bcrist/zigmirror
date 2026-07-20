@@ -110,7 +110,7 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
                     .ignore_range_not_satisfiable = false,
                 });
 
-                var last_reported_transfer_speed =std.Io.Timestamp.now(request.io, .awake).subDuration(.fromSeconds(1));
+                var last_reported_transfer_speed = std.Io.Timestamp.now(request.io, .awake).subDuration(.fromSeconds(1));
                 var bytes_since_last_reported_transfer_speed: usize = 0;
 
                 var limit: std.Io.Limit = .limited(64 * 1024);
