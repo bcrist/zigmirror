@@ -9,7 +9,7 @@ pub fn build(b: *std.Build) void {
     const resources = shittip.resources(b, &.{
         .{ .path = "resources" },
     }, .{
-        .install = if (optimize == .Debug) "resources" else null,
+        .install = if (optimize == .debug) "resources" else null,
     });
 
     const http_module = b.dependency("shittip", .{}).module("http");
