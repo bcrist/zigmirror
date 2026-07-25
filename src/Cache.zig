@@ -334,8 +334,9 @@ pub const Entry = struct {
         const time_since_last: u64 = if (now > last) std.math.cast(u64, now -% last) orelse 0 else 0;
         const dev_penalty: u64 = if (self.artifact != null and self.artifact.?.pre != null) 60_000 else 1000;
         const not_found_penalty: u64 = if (self.bytes == null and self.data == .none) 1_000_000 else 0;
+        const time_factor: u64 = if (self.artifact != null and self.artifact.?.extension.is_minisig()) 2 else 1;
 
-        const numer = time_in_cache + time_since_last + dev_penalty + not_found_penalty;
+        const numer = (time_in_cache + time_since_last) * time_factor + dev_penalty + not_found_penalty;
         const denom = if (requests > 1) requests + 10 else 1;
 
         return numer / denom;
