@@ -99,6 +99,9 @@ fn evict_from_mem_cache(cache: *Caches, server_stats: *Server_Stats, config: *co
     const artifact_to_remove = mem_ref.ptr.artifact.?;
     log.debug("evict_from_mem_cache {f}", .{ artifact_to_remove });
 
+    const now = tempora.now_utc(cache.mem.io).timestamp_ms();
+    const score = mem_ref.ptr.order_score(now);
+
     switch (mem_ref.ptr.data) {
         .owned => |data| {
             errdefer mem_ref.unlock();
@@ -111,8 +114,6 @@ fn evict_from_mem_cache(cache: *Caches, server_stats: *Server_Stats, config: *co
                     var fs_artifact: ?Artifact = null;
                     if (try cache.fs.get_worst()) |fs_ref| {
                         defer fs_ref.unlock();
-
-                        const now = tempora.now_utc(cache.mem.io).timestamp_ms();
 
                         if (mem_ref.ptr.order(fs_ref.ptr, now) != .lt) {
                             // worst item in fs cache is better than the item we're evicting from mem cache, so don't add it to the fs cache
@@ -139,7 +140,7 @@ fn evict_from_mem_cache(cache: *Caches, server_stats: *Server_Stats, config: *co
     if (try cache.mem.remove(artifact_to_remove)) |ref| {
         defer ref.unlock();
         _ = server_stats.cache_evictions_mem.fetchAdd(1, .monotonic);
-        log.info("Evicted {f} from mem cache", .{ artifact_to_remove });
+        log.info("Evicted {f} from mem cache (score {})", .{ artifact_to_remove, score });
     }
 
     try cache.cleanup_fs(server_stats, config);
@@ -230,6 +231,9 @@ pub fn evict_from_fs_cache_dir(fs_cache: *Cache, server_stats: *Server_Stats, ar
         defer ref.unlock();
         _ = server_stats.cache_evictions_fs.fetchAdd(1, .monotonic);
 
+        const now = tempora.now_utc(fs_cache.io).timestamp_ms();
+        const score = ref.ptr.order_score(now);
+
         var filename_buf: [Artifact.max_filename_length]u8 = undefined;
         const filename = std.fmt.bufPrint(&filename_buf, "{f}", .{ artifact }) catch unreachable;
         cache_dir.deleteFile(fs_cache.io, filename) catch |err| switch (err) {
@@ -240,7 +244,7 @@ pub fn evict_from_fs_cache_dir(fs_cache: *Cache, server_stats: *Server_Stats, ar
             },
         };
         
-        log.info("Evicted {f} from fs cache", .{ artifact });
+        log.info("Evicted {f} from fs cache (score {})", .{ artifact, score });
     }
 }
 

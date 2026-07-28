@@ -330,6 +330,8 @@ pub const Entry = struct {
         const last = self.requests.last_time.load(.monotonic);
         const requests = self.requests.count.load(.monotonic);
 
+        if (requests == 0) return 10_000_000_000_000_000_000;
+
         const time_in_cache: u64 = if (now > first) std.math.cast(u64, now -% first) orelse 0 else 0;
         const time_since_last: u64 = if (now > last) std.math.cast(u64, now -% last) orelse 0 else 0;
         const dev_penalty: u64 = if (self.artifact != null and self.artifact.?.pre != null) 60_000 else 1000;
