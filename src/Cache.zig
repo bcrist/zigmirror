@@ -126,7 +126,9 @@ pub fn report_added_bytes(self: *Cache, bytes: u32) void {
     _ = self.total_bytes.fetchAdd(bytes, .monotonic);
 }
 
-// Call Entry.Ref.unlock when finished
+// If a non-null entry ref is returned, caller is responsible for:
+//      * calling Cache.reset_entry(ref.ptr)
+//      * calling ref.unlock()
 pub fn remove(self: *Cache, artifact: Artifact) error{Canceled}!?Entry.Ref {
     const index = self.remove_lookup(artifact) orelse return null;
 
@@ -136,7 +138,7 @@ pub fn remove(self: *Cache, artifact: Artifact) error{Canceled}!?Entry.Ref {
 
     if (entry.artifact) |found_artifact| {
         if (std.meta.eql(found_artifact, artifact)) {
-            self.reset_index(index, entry);
+            self.last_removed_index.store(index, .monotonic);
             return .init(self.io, entry, .exclusive);
         } else {
             log.err("Attempting to remove artifact {f} from cache slot {}, but that slot unexpectedly contains {f}", .{ artifact, index, found_artifact, });
@@ -155,7 +157,7 @@ pub fn remove_lookup(self: *Cache, artifact: Artifact) ?usize {
     return if (self.lookup.fetchRemove(artifact)) |kv| kv.value else null;
 }
 
-fn reset_index(self: *Cache, index: usize, entry: *Entry) void {
+pub fn reset_entry(self: *Cache, entry: *Entry) void {
     switch (entry.data) {
         .none => {},
         .transfer => unreachable,
@@ -173,8 +175,6 @@ fn reset_index(self: *Cache, index: usize, entry: *Entry) void {
     entry.hash = null;
     entry.artifact = null;
     entry.requests = .init;
-
-    self.last_removed_index.store(index, .monotonic);
 }
 
 // Call Entry.Ref.unlock when finished
