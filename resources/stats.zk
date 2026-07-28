@@ -60,7 +60,9 @@
                     <th>Max</th>
                     <th>Mean</th>
                     <th>Eviction Score</th>
+\\ include_hashes?
                     <th>SHA-256</th>
+\\ ~
                 </tr>
             </thead>
 \\ cache.mem.entries:
@@ -77,7 +79,9 @@
                 <td>\\request_duration_max//</td>
                 <td>\\request_duration_avg//</td>
                 <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\eviction_score//</td>
+\\ include_hashes?
                 <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\hash//</td>
+\\ ~
             </tr>
 \\ ~
         </table>
@@ -104,7 +108,9 @@
                     <th>Max</th>
                     <th>Mean</th>
                     <th>Eviction Score</th>
+\\ include_hashes?
                     <th>SHA-256</th>
+\\ ~
                 </tr>
             </thead>
 \\ cache.fs.entries:
@@ -121,7 +127,9 @@
                 <td>\\request_duration_max//</td>
                 <td>\\request_duration_avg//</td>
                 <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\eviction_score//</td>
+\\ include_hashes?
                 <td\\locked?;// class="warn" title="Slot could not be locked; data may be inaccurate!"\\~//>\\hash//</td>
+\\ ~
             </tr>
 \\ ~
         </table>

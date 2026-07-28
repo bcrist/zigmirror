@@ -105,6 +105,7 @@ pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_
         .zig_version = @import("builtin").zig_version,
         .show_rate_limit_stats = config.show_rate_limit_stats,
         .rate_limits = rate_limits,
+        .include_hashes = request.has_query_param("include_hashes"),
     }, .{ .Context = Context });
 }
 
