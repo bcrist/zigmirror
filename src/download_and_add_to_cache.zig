@@ -36,10 +36,13 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
 }
 
 pub fn prewarm(io: std.Io, gpa: std.mem.Allocator, artifact: Artifact, cache: *Caches, server_stats: *Server_Stats, config: *const Config, downloads: *Download_Permission) error{Canceled}!void {
+    const now = tempora.now_utc(io).timestamp_ms();
+    
     // skip if artifact already exists in either cache
     if (try cache.mem.get(artifact, .shared)) |ref| {
         defer ref.unlock();
         if (ref.ptr.data != .none) {
+            ref.ptr.requests.hit_not_found(now);
             log.debug("prewarm: {f} already exists in mem cache", .{ artifact });
             return;
         }
@@ -47,6 +50,7 @@ pub fn prewarm(io: std.Io, gpa: std.mem.Allocator, artifact: Artifact, cache: *C
     if (try cache.fs.get(artifact, .shared)) |ref| {
         defer ref.unlock();
         if (ref.ptr.bytes != null) {
+            ref.ptr.requests.hit_not_found(now);
             log.debug("prewarm: {f} already exists in fs cache", .{ artifact });
             return;
         }
@@ -77,6 +81,7 @@ pub fn prewarm(io: std.Io, gpa: std.mem.Allocator, artifact: Artifact, cache: *C
     if (try cache.mem.get(artifact, .shared)) |ref| {
         defer ref.unlock();
         if (ref.ptr.data != .none) {
+            ref.ptr.requests.hit_not_found(now);
             log.debug("prewarm: {f} already exists in mem cache", .{ artifact });
             return;
         }
@@ -84,6 +89,7 @@ pub fn prewarm(io: std.Io, gpa: std.mem.Allocator, artifact: Artifact, cache: *C
     if (try cache.fs.get(artifact, .shared)) |ref| {
         defer ref.unlock();
         if (ref.ptr.bytes != null) {
+            ref.ptr.requests.hit_not_found(now);
             log.debug("prewarm: {f} already exists in fs cache", .{ artifact });
             return;
         }
