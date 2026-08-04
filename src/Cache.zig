@@ -222,6 +222,7 @@ pub const Entry = struct {
         first_time: std.atomic.Value(i64),
         last_time: std.atomic.Value(i64),
         count: std.atomic.Value(u32),
+        partial_bytes: std.atomic.Value(i64),
         duration_min: std.atomic.Value(u32),
         duration_max: std.atomic.Value(u32),
         duration_total: std.atomic.Value(u64),
@@ -231,6 +232,7 @@ pub const Entry = struct {
             .first_time = .init(std.math.maxInt(i64)),
             .last_time = .init(std.math.minInt(i64)),
             .count = .init(0),
+            .partial_bytes = .init(0),
             .duration_min = .init(std.math.maxInt(u32)),
             .duration_max = .init(0),
             .duration_total = .init(0),
@@ -242,6 +244,7 @@ pub const Entry = struct {
                 .first_time = .init(self.first_time.load(.monotonic)),
                 .last_time = .init(self.last_time.load(.monotonic)),
                 .count = .init(self.count.load(.monotonic)),
+                .partial_bytes = .init(self.count.load(.monotonic)),
                 .duration_min = .init(self.duration_min.load(.monotonic)),
                 .duration_max = .init(self.duration_max.load(.monotonic)),
                 .duration_total = .init(self.duration_total.load(.monotonic)),
@@ -257,6 +260,17 @@ pub const Entry = struct {
             _ = self.duration_max.fetchMax(request_duration, .monotonic);
             _ = self.duration_total.fetchAdd(request_duration, .monotonic);
             _ = self.duration_count.fetchAdd(1, .monotonic);
+        }
+
+        pub fn hit_partial(self: *@This(), request_time: i64, bytes: usize, total_bytes: usize) void {
+            _ = self.first_time.fetchMin(request_time, .monotonic);
+            _ = self.last_time.fetchMax(request_time, .monotonic);
+            const bytes_i64: i64 = @intCast(bytes);
+            const partial_bytes = bytes_i64 + self.partial_bytes.fetchAdd(bytes_i64, .monotonic);
+            if (partial_bytes > 0) {
+                _ = self.partial_bytes.fetchSub(@intCast(total_bytes), .monotonic);
+                _ = self.count.fetchAdd(1, .monotonic);
+            }
         }
 
         pub fn hit_not_found(self: *@This(), request_time: i64) void {

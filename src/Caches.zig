@@ -258,23 +258,42 @@ pub fn evict_from_fs_cache_dir(fs_cache: *Cache, server_stats: *Server_Stats, ar
 }
 
 pub fn report_hit(request: *http.Request, server_stats: *Server_Stats, entry: *Cache.Entry) void {
-    const end = tempora.now_utc(request.io).timestamp_ms();
-    const now = request.received_dt.with_offset(0).timestamp_ms();
-    const request_duration: u32 = @intCast(std.math.clamp(end - now, 0, std.math.maxInt(u32)));
+    const start = request.received_dt.with_offset(0).timestamp_ms();
 
-    if (request.get_header("x-forwarded-for")) |header| {
-        log.debug("{f}: artifact download took {f} (XFF: {f})", .{
-            request.cid,
-            std.Io.Duration.fromMilliseconds(request_duration),
-            std.zig.fmtString(header),
-        });
+    if (request.range("bytes", true) catch null) |range_iter| {
+        const total_bytes = entry.bytes orelse switch (entry.data) {
+            .none => return log.err("{f}: unable to determine artifact size", .{ request.cid }),
+            .transfer => |upstream| upstream.data.len,
+            .owned => |buf| buf.len,
+        };
+
+        var iter = range_iter;
+        var requested_bytes: usize = 0;
+        while (iter.next_valid()) |range| {
+            const satisfied = range.satisfy(total_bytes) catch continue;
+            requested_bytes += satisfied.len;
+        }
+
+        entry.requests.hit_partial(start, requested_bytes, total_bytes);
     } else {
-        log.debug("{f}: artifact download took {f}", .{
-            request.cid,
-            std.Io.Duration.fromMilliseconds(request_duration),
-        });
+        const end = tempora.now_utc(request.io).timestamp_ms();
+        const request_duration: u32 = @intCast(std.math.clamp(end - start, 0, std.math.maxInt(u32)));
+
+        if (request.get_header("x-forwarded-for")) |header| {
+            log.debug("{f}: artifact download took {f} (XFF: {f})", .{
+                request.cid,
+                std.Io.Duration.fromMilliseconds(request_duration),
+                std.zig.fmtString(header),
+            });
+        } else {
+            log.debug("{f}: artifact download took {f}", .{
+                request.cid,
+                std.Io.Duration.fromMilliseconds(request_duration),
+            });
+        }
+        entry.requests.hit(start, request_duration);
     }
-    entry.requests.hit(now, request_duration);
+
     _ = server_stats.artifacts_served.fetchAdd(1, .monotonic);
 }
 
