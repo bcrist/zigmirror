@@ -192,11 +192,14 @@ fn add_artifact_to_fs_cache(cache: *Caches, server_stats: *Server_Stats, mem_ref
         },
     };
 
-    fs_ref.ptr.bytes = @intCast(data.len);
+    const bytes: u32 = @intCast(data.len);
+    std.debug.assert(fs_ref.ptr.bytes == null);
+    fs_ref.ptr.bytes = bytes;
     fs_ref.ptr.hash = mem_ref.ptr.hash;
     fs_ref.ptr.requests.first_time.store(mem_ref.ptr.requests.first_time.load(.monotonic), .monotonic);
     fs_ref.ptr.requests.last_time.store(mem_ref.ptr.requests.last_time.load(.monotonic), .monotonic);
     fs_ref.ptr.requests.count.store(mem_ref.ptr.requests.count.load(.monotonic), .monotonic);
+    cache.fs.report_added_bytes(bytes);
 
     log.info("Added {f} to fs cache", .{ mem_artifact });
 }
