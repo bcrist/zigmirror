@@ -1,8 +1,8 @@
 .{
     .name = .zigmirror,
     .fingerprint = 0xe8542ef7ee8a8b70,
-    .version = "1.2.41",
-    .minimum_zig_version = "0.17.0-dev.812+5434f85c4",
+    .version = "1.2.42",
+    .minimum_zig_version = "0.17.0-dev.1732+91c8116b2",
     .paths = .{
         "src",
         "resources",
@@ -21,8 +21,8 @@
             .hash = "fmt_helper-0.2.1-yH32_V5sAADF1sx7LkROCBNt2joIdTU_5eenKsaHYVrr",
         },
         .shittip = .{
-            .url = "git+https://codeberg.org/bcrist/shittip?ref=zig-master#1f42e69136695842d0602d5c2a5e773a3adb6fd6",
-            .hash = "shittip-0.5.10-l5sQcRazAgD86RwqZA0uXsFyc8oTFOC1_ptHu9A5w5tq",
+            .url = "git+https://codeberg.org/bcrist/shittip?ref=zig-master#f9058ee8dac22ef6ecc6fc9cc9d04adb11458e1e",
+            .hash = "shittip-0.5.11-l5sQcW6zAgBiS2avFclIx01E4G-sehDCNGMCYfYf_JVA",
         },
         .sx = .{
             .url = "git+https://codeberg.org/bcrist/zig-sx?ref=zig-master#7d70252b6a804bd1bf014aed07a16199354253bb",
@@ -33,8 +33,8 @@
             .hash = "tempora-0.6.2-GTyeDfXJFgC3i8mQGMAK04HdiBxvwM2jVGdIR4Sbf2RD",
         },
         .zkittle = .{
-            .url = "git+https://codeberg.org/bcrist/zkittle?ref=zig-master#fae8724c1952259590099b64e0554e6e98052231",
-            .hash = "zkittle-0.2.3-Nt34TDBZAQDMwEje-h16BgRjE6FD8GP6avnniVY-H6KQ",
+            .url = "git+https://codeberg.org/bcrist/zkittle?ref=zig-master#2275c3a56587ed9b44c7397dd17af7db164e4dcf",
+            .hash = "zkittle-0.2.4-Nt34TCVZAQCmG-zd4jhSPrjrY3exyXXtKRJEri6k8I_H",
         },
         .dizzy = .{
             .url = "git+https://codeberg.org/bcrist/dizzy?ref=zig-master#7d5d82ed83001a9c236402348f744fb3d6bdb5c8",
