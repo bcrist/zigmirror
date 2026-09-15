@@ -189,6 +189,10 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
         }
     }
 
+    if (index.should_skip_upstream(request.io, artifact)) {
+        return error.NotFound;
+    }
+
     _ = try request.chain("upstream");
 }
 

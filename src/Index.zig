@@ -110,14 +110,36 @@ pub fn is_outdated_by_artifact(self: *Index, io: std.Io, now: tempora.Date_Time,
     if (artifact.pre == null) return false;
     if (artifact.artifact_type == .devkit) return false;
 
-    self.lock.lockSharedUncancelable(io);
-    defer self.lock.unlockShared(io);
+    const master: Artifact = locked: {
+        self.lock.lockSharedUncancelable(io);
+        defer self.lock.unlockShared(io);
 
-    if (now.is_before(self.last_checked_upstream) or now.duration_since(self.last_checked_upstream).toSeconds() < self.min_recheck_index_interval_seconds) return false;
+        if (now.is_before(self.last_checked_upstream) or now.duration_since(self.last_checked_upstream).toSeconds() < self.min_recheck_index_interval_seconds) return false;
 
-    const current = self.current orelse return true;
+        const current = self.current orelse return true;
+        break :locked current.master_src;
+    };
 
-    return artifact.version_order(current.master_src) == .gt;
+    return artifact.version_order(master) == .gt;
+}
+
+pub fn should_skip_upstream(self: *Index, io: std.Io, artifact: Artifact) bool {
+    if (artifact.pre) |pre| {
+        if (!std.mem.startsWith(u8, pre.slice(&artifact.buf), "dev.")) return true;
+    } else return false;
+
+    const master: Artifact = locked: {
+        self.lock.lockSharedUncancelable(io);
+        defer self.lock.unlockShared(io);
+        const current = self.current orelse return false;
+        break :locked current.master_src;
+    };
+
+    const is_reasonable = artifact.major == master.major and artifact.minor +% 1 >= master.minor and artifact.minor <= master.minor +% 1
+        or artifact.major == master.major +% 1
+        or artifact.major +% 1 == master.major;
+
+    return !is_reasonable;
 }
 
 const Content = struct {
