@@ -91,6 +91,15 @@ git pull
 sudo zig build upgrade -Doptimize=ReleaseSafe -Dupgrade-bin-user=zigmirror
 ```
 
+## Branches
+| Zig Version  | Recommended Branch |
+|--------------|--------------------|
+| 0.18.0-dev.* | zig-master         |
+| 0.17.0       | main               |
+| 0.16.0       | zig-0.16           |
+| 0.15.2       | zig-0.15           |
+
+
 # TODO
 * Tool for testing concurrent downloads, client disconnects, etc.
 * Daily graph of requests aggregated by version (with -dev.* versions combined)
