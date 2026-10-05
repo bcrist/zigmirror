@@ -21,7 +21,7 @@ pub fn evict_all_mem(cache: *Caches, server_stats: *Server_Stats, config: *const
     }
 
     persist_fs_cache_metadata(&cache.fs, config.cache.fs.path) catch |err| {
-        log.err("Failed to persist fs cache metadata: {t}", .{ err });
+        log.err("Failed to persist fs cache metadata: {t}", .{err});
     };
 }
 
@@ -51,7 +51,7 @@ pub fn periodic_cleanup(cache: *Caches, server_stats: *Server_Stats, config: *co
     }
 
     persist_fs_cache_metadata(&cache.fs, config.cache.fs.path) catch |err| {
-        log.warn("Failed to persist fs cache metadata: {t}", .{ err });
+        log.warn("Failed to persist fs cache metadata: {t}", .{err});
     };
 }
 
@@ -97,7 +97,7 @@ pub fn maybe_evict_from_mem_cache(cache: *Caches, server_stats: *Server_Stats, c
 
 fn evict_from_mem_cache(cache: *Caches, server_stats: *Server_Stats, config: *const Config, mem_ref: Cache.Entry.Ref) !void {
     const artifact_to_remove = mem_ref.ptr.artifact.?;
-    log.debug("evict_from_mem_cache {f}", .{ artifact_to_remove });
+    log.debug("evict_from_mem_cache {f}", .{artifact_to_remove});
 
     switch (mem_ref.ptr.data) {
         .owned => |data| {
@@ -156,13 +156,13 @@ fn add_artifact_to_fs_cache(cache: *Caches, server_stats: *Server_Stats, mem_ref
     const mem_artifact = mem_ref.ptr.artifact.?;
     const data = mem_ref.ptr.data.owned;
 
-    log.debug("add_artifact_to_fs_cache {f}", .{ mem_artifact });
+    log.debug("add_artifact_to_fs_cache {f}", .{mem_artifact});
 
     const fs_ref: Cache.Entry.Ref = for (0..100) |_| {
         if (try cache.fs.get_or_add(mem_artifact)) |ref| break ref;
         try maybe_evict_from_fs_cache(&cache.fs, server_stats, cache_path);
     } else {
-        log.warn("Failed to add {f} to fs cache: could not find free slot", .{ mem_artifact });
+        log.warn("Failed to add {f} to fs cache: could not find free slot", .{mem_artifact});
         return;
     };
     defer fs_ref.unlock();
@@ -177,7 +177,7 @@ fn add_artifact_to_fs_cache(cache: *Caches, server_stats: *Server_Stats, mem_ref
     defer cache_dir.close(cache.fs.io);
 
     var filename_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
-    const filename = try std.fmt.bufPrint(&filename_buf, "{f}", .{ mem_artifact });
+    const filename = try std.fmt.bufPrint(&filename_buf, "{f}", .{mem_artifact});
     cache_dir.writeFile(cache.fs.io, .{
         .sub_path = filename,
         .data = data,
@@ -201,7 +201,7 @@ fn add_artifact_to_fs_cache(cache: *Caches, server_stats: *Server_Stats, mem_ref
     fs_ref.ptr.requests.count.store(mem_ref.ptr.requests.count.load(.monotonic), .monotonic);
     cache.fs.report_added_bytes(bytes);
 
-    log.info("Added {f} to fs cache", .{ mem_artifact });
+    log.info("Added {f} to fs cache", .{mem_artifact});
 }
 
 pub fn maybe_evict_from_fs_cache(fs_cache: *Cache, server_stats: *Server_Stats, cache_path: []const u8) error{Canceled}!void {
@@ -221,7 +221,7 @@ pub fn maybe_evict_from_fs_cache(fs_cache: *Cache, server_stats: *Server_Stats, 
 }
 
 pub fn evict_from_fs_cache(fs_cache: *Cache, server_stats: *Server_Stats, artifact: Artifact, cache_path: []const u8) !void {
-    log.debug("evict_from_mem_cache {f}", .{ artifact });
+    log.debug("evict_from_mem_cache {f}", .{artifact});
     const cache_dir = std.Io.Dir.cwd().createDirPathOpen(fs_cache.io, cache_path, .{}) catch |err| switch (err) {
         error.Canceled => |e| return e,
         else => |e| {
@@ -235,7 +235,7 @@ pub fn evict_from_fs_cache(fs_cache: *Cache, server_stats: *Server_Stats, artifa
 }
 
 pub fn evict_from_fs_cache_dir(fs_cache: *Cache, server_stats: *Server_Stats, artifact: Artifact, cache_dir: std.Io.Dir) error{Canceled}!void {
-    log.debug("evict_from_fs_cache_dir {f}", .{ artifact });
+    log.debug("evict_from_fs_cache_dir {f}", .{artifact});
     if (try fs_cache.remove(artifact)) |ref| {
         defer ref.unlock();
 
@@ -247,7 +247,7 @@ pub fn evict_from_fs_cache_dir(fs_cache: *Cache, server_stats: *Server_Stats, ar
         _ = server_stats.cache_evictions_fs.fetchAdd(1, .monotonic);
 
         var filename_buf: [Artifact.max_filename_length]u8 = undefined;
-        const filename = std.fmt.bufPrint(&filename_buf, "{f}", .{ artifact }) catch unreachable;
+        const filename = std.fmt.bufPrint(&filename_buf, "{f}", .{artifact}) catch unreachable;
         cache_dir.deleteFile(fs_cache.io, filename) catch |err| switch (err) {
             error.Canceled => |e| return e,
             else => |e| {
@@ -255,7 +255,7 @@ pub fn evict_from_fs_cache_dir(fs_cache: *Cache, server_stats: *Server_Stats, ar
                 return;
             },
         };
-        
+
         log.info("Evicted {f} from fs cache (score {})", .{ artifact, score });
     }
 }
@@ -265,7 +265,7 @@ pub fn report_hit(request: *http.Request, server_stats: *Server_Stats, entry: *C
 
     if (request.range("bytes", true) catch null) |range_iter| {
         const total_bytes = entry.bytes orelse switch (entry.data) {
-            .none => return log.err("{f}: unable to determine artifact size", .{ request.cid }),
+            .none => return log.err("{f}: unable to determine artifact size", .{request.cid}),
             .transfer => |upstream| upstream.data.len,
             .owned => |buf| buf.len,
         };
@@ -319,15 +319,15 @@ pub fn persist_fs_cache_metadata(fs_cache: *Cache, cache_path: []const u8) !void
         const ref: Cache.Entry.Ref = .init(fs_cache.io, entry, .shared);
         const locked = ref.try_lock();
         defer if (locked) ref.unlock();
-        
+
         const artifact = ref.ptr.artifact orelse continue;
 
         try sxw.open();
-        try sxw.print_value("{f}", .{ artifact });
+        try sxw.print_value("{f}", .{artifact});
 
         if (ref.ptr.hash) |hash| {
             try sxw.expression("sha256");
-            try sxw.print_value("{x}", .{ hash });
+            try sxw.print_value("{x}", .{hash});
             try sxw.close();
         }
 
@@ -339,8 +339,8 @@ pub fn persist_fs_cache_metadata(fs_cache: *Cache, cache_path: []const u8) !void
             const last_dto: tempora.Date_Time.With_Offset = .from_timestamp_ms(last_time, null);
             try sxw.expression("requests");
             try sxw.int(request_count, 10);
-            try sxw.print_value("{f}", .{ first_dto.fmt(tempora.Date_Time.With_Offset.iso8601_local) });
-            try sxw.print_value("{f}", .{ last_dto.fmt(tempora.Date_Time.With_Offset.iso8601_local) });
+            try sxw.print_value("{f}", .{first_dto.fmt(tempora.Date_Time.With_Offset.iso8601_local)});
+            try sxw.print_value("{f}", .{last_dto.fmt(tempora.Date_Time.With_Offset.iso8601_local)});
             try sxw.close();
         }
 
@@ -397,7 +397,7 @@ pub fn load_fs_cache(fs_cache: *Cache, server_stats: *Server_Stats, cache_path: 
             fs_ref.ptr.requests.last_time.store(startup_time, .monotonic);
             fs_ref.ptr.requests.count.store(1, .monotonic);
             fs_cache.report_added_bytes(bytes);
-            log.info("Initializing fs cache: {f}", .{ artifact });
+            log.info("Initializing fs cache: {f}", .{artifact});
         }
     }
 
@@ -435,13 +435,13 @@ fn load_fs_cache_metadata_internal(fs_cache: *Cache, cache_dir: std.Io.Dir, sxr:
 
     while (try sxr.any_expression()) |artifact_name| {
         const artifact = Artifact.parse(artifact_name) catch {
-            log.warn("Found invalid artifact name in persisted cache metadata: {s}", .{ artifact_name });
+            log.warn("Found invalid artifact name in persisted cache metadata: {s}", .{artifact_name});
             try sxr.ignore_remaining_expression();
             continue;
         };
 
         const ref = (try fs_cache.get(artifact, .exclusive)) orelse {
-            log.warn("Found artifact in persisted cache metadata that no longer exists in fs: {s}", .{ artifact_name });
+            log.warn("Found artifact in persisted cache metadata that no longer exists in fs: {s}", .{artifact_name});
             try sxr.ignore_remaining_expression();
             continue;
         };
@@ -464,7 +464,7 @@ fn load_fs_cache_metadata_internal(fs_cache: *Cache, cache_dir: std.Io.Dir, sxr:
             if (found_valid_hash) {
                 if (ref.ptr.hash) |computed_hash| {
                     if (!std.mem.eql(u8, &found_hash_bytes, &computed_hash)) {
-                        log.err("Artifact hash from persisted metadata doesn't match file contents for {s}", .{ artifact_name });
+                        log.err("Artifact hash from persisted metadata doesn't match file contents for {s}", .{artifact_name});
                         try evict_from_fs_cache_dir(fs_cache, server_stats, artifact, cache_dir);
                         try sxr.ignore_remaining_expression();
                         continue;
@@ -541,8 +541,8 @@ pub fn validate_fs_cache(cache: *Caches, server_stats: *Server_Stats, cache_path
             const hash: [std.crypto.hash.sha2.Sha256.digest_length]u8 = ref.ptr.hash orelse @splat(0);
             break :e .{ artifact, bytes, hash };
         };
-        
-        const filename = std.fmt.bufPrint(&filename_buf, "{f}", .{ artifact }) catch unreachable;
+
+        const filename = std.fmt.bufPrint(&filename_buf, "{f}", .{artifact}) catch unreachable;
         const cache_file = cache_dir.openFile(cache.fs.io, filename, .{ .lock = .shared }) catch |err| switch (err) {
             error.Canceled => |e| return e,
             else => |e| {
@@ -584,7 +584,7 @@ pub fn validate_fs_cache(cache: *Caches, server_stats: *Server_Stats, cache_path
             continue;
         }
 
-        log.debug("validate: {f}: File size and SHA256 matches expectation", .{ artifact });
+        log.debug("validate: {f}: File size and SHA256 matches expectation", .{artifact});
     }
 }
 

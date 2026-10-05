@@ -42,7 +42,7 @@ pub fn parse(filename: []const u8) !Artifact {
     const pre: ?Buffer_Slice = if (sv.pre) |str| s: {
         const begin = w.end;
         w.writeAll(str) catch {
-            log.err("Filename too long: \"{f}\"", .{ std.zig.fmtString(filename) });
+            log.err("Filename too long: \"{f}\"", .{std.zig.fmtString(filename)});
             return error.InvalidArtifactFilename;
         };
         break :s .init_begin_end(begin, w.end);
@@ -51,7 +51,7 @@ pub fn parse(filename: []const u8) !Artifact {
     const build: ?Buffer_Slice = if (sv.build) |str| s: {
         const begin = w.end;
         w.writeAll(str) catch {
-            log.err("Filename too long: \"{f}\"", .{ std.zig.fmtString(filename) });
+            log.err("Filename too long: \"{f}\"", .{std.zig.fmtString(filename)});
             return error.InvalidArtifactFilename;
         };
         break :s .init_begin_end(begin, w.end);
@@ -62,21 +62,21 @@ pub fn parse(filename: []const u8) !Artifact {
     // errdefer std.log.err("last_dash = {}", .{ last_dash });
 
     if (last_dash > devkit_prefix.len and std.mem.startsWith(u8, filename, devkit_prefix)) {
-        const arch_os_str = filename[devkit_prefix.len .. last_dash];
+        const arch_os_str = filename[devkit_prefix.len..last_dash];
         const begin = w.end;
         w.writeAll(arch_os_str) catch {
-            log.err("Filename too long: \"{f}\"", .{ std.zig.fmtString(filename) });
+            log.err("Filename too long: \"{f}\"", .{std.zig.fmtString(filename)});
             return error.InvalidArtifactFilename;
         };
         artifact_type = .{ .devkit = .init_begin_end(begin, w.end) };
     } else if (last_dash > build_prefix.len and std.mem.startsWith(u8, filename, build_prefix)) {
-        const arch_os_str = filename[build_prefix.len .. last_dash];
+        const arch_os_str = filename[build_prefix.len..last_dash];
         if (std.mem.eql(u8, arch_os_str, "bootstrap")) {
             artifact_type = .bootstrap;
         } else {
             const begin = w.end;
             w.writeAll(arch_os_str) catch {
-                log.err("Filename too long: \"{f}\"", .{ std.zig.fmtString(filename) });
+                log.err("Filename too long: \"{f}\"", .{std.zig.fmtString(filename)});
                 return error.InvalidArtifactFilename;
             };
             artifact_type = .{ .build = .init_begin_end(begin, w.end) };
@@ -179,16 +179,16 @@ pub const max_filename_length: usize = @as(usize, @max(
     build_prefix.len,
     devkit_prefix.len,
 )) + (1 + std.math.log10(std.math.maxInt(u16))) * 3 // major, minor, patch
-  + 5 // 2 '.', '-', and '+' in semver, plus '-' after target in build/devkit
-  + buffer_len // target string and pre/build semver fields
-  + Extension.max_length;
++ 5 // 2 '.', '-', and '+' in semver, plus '-' after target in build/devkit
++ buffer_len // target string and pre/build semver fields
++ Extension.max_length;
 
 pub fn format(self: *const Artifact, writer: *std.Io.Writer) std.Io.Writer.Error!void {
     switch (self.artifact_type) {
         .source => try writer.writeAll(source_prefix),
         .bootstrap => try writer.writeAll(bootstrap_prefix),
-        .build => |s| try writer.print(build_prefix ++ "{s}-", .{ s.slice(&self.buf) }),
-        .devkit => |s| try writer.print(devkit_prefix ++ "{s}-", .{ s.slice(&self.buf) }),
+        .build => |s| try writer.print(build_prefix ++ "{s}-", .{s.slice(&self.buf)}),
+        .devkit => |s| try writer.print(devkit_prefix ++ "{s}-", .{s.slice(&self.buf)}),
     }
     try writer.print("{f}{f}", .{ self.version(), self.extension });
 }
@@ -223,11 +223,10 @@ test "parse/format round trip" {
 
 fn test_parse_format(input: []const u8) !void {
     const artifact = try parse(input);
-    const output = try std.fmt.allocPrint(std.testing.allocator, "{f}", .{ artifact });
+    const output = try std.fmt.allocPrint(std.testing.allocator, "{f}", .{artifact});
     defer std.testing.allocator.free(output);
     try std.testing.expectEqualStrings(input, output);
 }
-
 
 pub fn upstream_path(self: *const Artifact, allocator: std.mem.Allocator) ![]const u8 {
     if (self.artifact_type == .devkit) {
@@ -263,7 +262,7 @@ pub fn upstream_url(self: *const Artifact, allocator: std.mem.Allocator) ![]cons
     }
 }
 
-pub const Type = union (enum) {
+pub const Type = union(enum) {
     source,
     bootstrap,
     build: Buffer_Slice,
@@ -283,7 +282,7 @@ pub const Type = union (enum) {
         pub fn format(self: Formatter, writer: *std.Io.Writer) std.Io.Writer.Error!void {
             try writer.writeAll(@tagName(self.artifact_type));
             if (self.artifact_type == .build) {
-                try writer.print(": {s}", .{ self.artifact_type.build.slice(self.buf) });
+                try writer.print(": {s}", .{self.artifact_type.build.slice(self.buf)});
             }
         }
     };

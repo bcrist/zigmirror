@@ -62,7 +62,7 @@ pub fn get(self: *Cache, artifact: Artifact, mode: Entry.Ref.Locking_Mode) error
         }
         ref.unlock();
     } else {
-        log.debug("Failed to find/lock artifact {f} after 10 attempts!", .{ artifact });
+        log.debug("Failed to find/lock artifact {f} after 10 attempts!", .{artifact});
         return null;
     }
 }
@@ -73,7 +73,7 @@ pub fn get_or_add(self: *Cache, artifact: Artifact) error{Canceled}!?Entry.Ref {
         if (try self.get(artifact, .exclusive)) |ref| return ref;
 
         const locked_index = self.find_free_index() orelse self.find_free_index() orelse {
-            log.debug("Failed to find/lock free slot for artifact {f} after 2 attempts!", .{ artifact });
+            log.debug("Failed to find/lock free slot for artifact {f} after 2 attempts!", .{artifact});
             return null;
         };
 
@@ -100,7 +100,7 @@ pub fn get_or_add(self: *Cache, artifact: Artifact) error{Canceled}!?Entry.Ref {
             return .init(self.io, &self.entries[locked_index], .exclusive);
         }
     } else {
-        log.debug("Failed to find/add/lock artifact {f} after 10 attempts!", .{ artifact });
+        log.debug("Failed to find/add/lock artifact {f} after 10 attempts!", .{artifact});
         return null;
     }
 }
@@ -141,7 +141,11 @@ pub fn remove(self: *Cache, artifact: Artifact) error{Canceled}!?Entry.Ref {
             self.last_removed_index.store(index, .monotonic);
             return .init(self.io, entry, .exclusive);
         } else {
-            log.err("Attempting to remove artifact {f} from cache slot {}, but that slot unexpectedly contains {f}", .{ artifact, index, found_artifact, });
+            log.err("Attempting to remove artifact {f} from cache slot {}, but that slot unexpectedly contains {f}", .{
+                artifact,
+                index,
+                found_artifact,
+            });
         }
     } else {
         log.err("Attempting to remove artifact {f} from cache slot {}, but that slot has already been reset.  This should not be possible.", .{ artifact, index });
@@ -213,7 +217,7 @@ pub const Entry = struct {
     artifact: ?Artifact,
     bytes: ?u32,
     hash: ?[std.crypto.hash.sha2.Sha256.digest_length]u8,
-    data: union (enum) {
+    data: union(enum) {
         none,
         transfer: *Upstream_Transfer,
         owned: []const u8,
@@ -301,38 +305,38 @@ pub const Entry = struct {
     }
 
     pub fn lock_exclusive(self: *@This(), io: std.Io) !void {
-        locking_log.debug("lock_exclusive {*}", .{ &self.rl });
+        locking_log.debug("lock_exclusive {*}", .{&self.rl});
         try self.rl.lock(io);
     }
 
     pub fn try_lock_exclusive(self: *@This(), io: std.Io) bool {
         if (self.rl.tryLock(io)) {
-            locking_log.debug("try_lock_exclusive {*}", .{ &self.rl });
+            locking_log.debug("try_lock_exclusive {*}", .{&self.rl});
             return true;
         }
         return false;
     }
 
     pub fn unlock_exclusive(self: *@This(), io: std.Io) void {
-        locking_log.debug("unlock_exclusive {*}", .{ &self.rl });
+        locking_log.debug("unlock_exclusive {*}", .{&self.rl});
         self.rl.unlock(io);
     }
 
     pub fn lock_shared(self: *@This(), io: std.Io) !void {
-        locking_log.debug("lock_shared {*}", .{ &self.rl });
+        locking_log.debug("lock_shared {*}", .{&self.rl});
         try self.rl.lockShared(io);
     }
-    
+
     pub fn try_lock_shared(self: *@This(), io: std.Io) bool {
         if (self.rl.tryLockShared(io)) {
-            locking_log.debug("try_lock_shared {*}", .{ &self.rl });
+            locking_log.debug("try_lock_shared {*}", .{&self.rl});
             return true;
         }
         return false;
     }
 
     pub fn unlock_shared(self: *@This(), io: std.Io) void {
-        locking_log.debug("unlock_shared {*}", .{ &self.rl });
+        locking_log.debug("unlock_shared {*}", .{&self.rl});
         self.rl.unlockShared(io);
     }
 

@@ -51,7 +51,7 @@ pub fn get(
     if (self.is_outdated(tempora.now_utc(request.io).dt)) {
         try self.locked_regenerate(loop, cache, server_stats, config, downloads);
     }
-    
+
     if (self.current) |content| {
         try content.respond(request);
     } else return error.BadGateway;
@@ -82,12 +82,12 @@ fn locked_regenerate(self: *Index, loop: *http.Loop, cache: *Caches, server_stat
     const content = Content.generate(loop, cache, server_stats, config, downloads) catch |err| switch (err) {
         error.Canceled => |e| return e,
         else => {
-            log.err("Failed to regenerate index.json: {t}", .{ err });
+            log.err("Failed to regenerate index.json: {t}", .{err});
             if (@errorReturnTrace()) |ert| {
                 std.debug.dumpErrorReturnTrace(ert);
             }
             return;
-        }
+        },
     };
     if (self.current) |*current| {
         current.deinit(self.gpa);
@@ -135,9 +135,7 @@ pub fn should_skip_upstream(self: *Index, io: std.Io, artifact: Artifact) bool {
         break :locked current.master_src;
     };
 
-    const is_reasonable = artifact.major == master.major and artifact.minor +% 1 >= master.minor and artifact.minor <= master.minor +% 1
-        or artifact.major == master.major +% 1
-        or artifact.major +% 1 == master.major;
+    const is_reasonable = artifact.major == master.major and artifact.minor +% 1 >= master.minor and artifact.minor <= master.minor +% 1 or artifact.major == master.major +% 1 or artifact.major +% 1 == master.major;
 
     return !is_reasonable;
 }
@@ -177,7 +175,7 @@ const Content = struct {
         const master_version_value = master_value.object.get("version") orelse return error.BadGateway;
         if (master_version_value != .string) return error.BadGateway;
 
-        const master_src_name = try std.fmt.allocPrint(parsed.arena.allocator(), "zig-{s}.tar.xz", .{ master_version_value.string });
+        const master_src_name = try std.fmt.allocPrint(parsed.arena.allocator(), "zig-{s}.tar.xz", .{master_version_value.string});
         const master_src: Artifact = try .parse(master_src_name);
 
         const master_date_value = master_value.object.get("date") orelse return error.BadGateway;
@@ -190,7 +188,7 @@ const Content = struct {
             if (std.SemanticVersion.parse(config.prewarm.min_version)) |version| {
                 min_prewarm_version = version;
             } else |err| {
-                log.warn("Invalid prewarm.min_version configuration: {t}", .{ err });
+                log.warn("Invalid prewarm.min_version configuration: {t}", .{err});
             }
         }
 
@@ -232,7 +230,7 @@ const Content = struct {
         var deflate_buffer: [std.compress.flate.max_window_len]u8 = undefined;
         var compressor: std.compress.flate.Compress = try .init(&writer.writer, &deflate_buffer, .zlib, .default);
         var hasher: std.Io.Writer.Hashed(std.crypto.hash.sha2.Sha256) = .initHasher(&compressor.writer, .init(.{}), &.{});
-        
+
         std.json.Stringify.value(parsed.value, .{ .whitespace = .indent_2 }, &hasher.writer) catch |err| switch (err) {
             error.WriteFailed => return error.OutOfMemory,
         };
@@ -242,7 +240,7 @@ const Content = struct {
         };
 
         const hash = hasher.hasher.finalResult();
-        const etag = try std.fmt.allocPrint(loop.gpa, "{x}", .{ hash });
+        const etag = try std.fmt.allocPrint(loop.gpa, "{x}", .{hash});
         errdefer loop.gpa.free(etag);
 
         return .{
@@ -254,7 +252,7 @@ const Content = struct {
             .master_src = master_src,
         };
     }
-    
+
     pub fn deinit(self: *Content, gpa: std.mem.Allocator) void {
         gpa.free(self.etag);
         gpa.free(self.compressed_json);
@@ -268,7 +266,7 @@ const Content = struct {
             .etag = self.etag,
             .last_modified_utc = self.generated,
         });
-        
+
         if (request.check_accept_encoding(.deflate)) {
             try request.set_response_header("content-encoding", "deflate");
             try request.respond_ranged(self.compressed_json, .{});
@@ -281,7 +279,6 @@ const Content = struct {
             _ = try reader.streamRemaining(try request.response_writer_ranged(self.uncompressed_length, .{}));
         }
     }
-
 };
 
 /// N.B. Assumes config.prewarm.min_version has already been checked!
@@ -301,7 +298,7 @@ pub fn prewarm_artifact(loop: *http.Loop, artifact: Artifact, cache: *Caches, se
         .devkit => return,
     }
 
-    log.debug("prewarm: scheduling {f}", .{ artifact });
+    log.debug("prewarm: scheduling {f}", .{artifact});
 
     loop.concurrent(download_and_add_to_cache.prewarm, .{ loop.io, loop.gpa, artifact, cache, server_stats, config, downloads }) catch |err| switch (err) {
         error.Canceled => |e| return e,

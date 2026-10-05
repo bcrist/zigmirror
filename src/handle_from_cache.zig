@@ -61,7 +61,7 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
             };
             defer cache_dir.close(request.io);
 
-            const filename = try request.fmt("{f}", .{ artifact });
+            const filename = try request.fmt("{f}", .{artifact});
             const cache_file = cache_dir.openFile(request.io, filename, .{ .lock = .shared }) catch |err| switch (err) {
                 error.Canceled => |e| return e,
                 else => |e| {
@@ -181,7 +181,7 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
             }
 
             Caches.report_hit(request, server_stats, ref.ptr);
-            
+
             if (index.is_outdated_by_artifact(request.io, request.received_dt, artifact)) {
                 _ = try request.chain("regenerate_index");
             }

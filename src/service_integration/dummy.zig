@@ -1,4 +1,3 @@
-
 pub fn init(io: std.Io, env: *const std.process.Environ.Map) void {
     _ = io;
     _ = env;

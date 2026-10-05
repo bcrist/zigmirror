@@ -3,7 +3,7 @@ pub fn check_and_set_headers(request: *http.Request, entry: *Cache.Entry) !void 
     const request_count = entry.requests.count.load(.monotonic);
     const first_request_ts = entry.requests.first_time.load(.monotonic);
     const last_modified_dt = if (request_count > 0) tempora.Date_Time.With_Offset.from_timestamp_ms(first_request_ts, null).dt else request.received_dt;
-    
+
     var not_modified_by_date: ?bool = null;
     var not_modified_by_etag: ?bool = null;
 
@@ -41,7 +41,7 @@ pub fn check_and_set_headers(request: *http.Request, entry: *Cache.Entry) !void 
         .last_modified_utc = last_modified_dt,
     });
     if (entry.hash) |hash| {
-        try request.set_response_header("etag", try request.fmt("\"{x}\"", .{ hash }));
+        try request.set_response_header("etag", try request.fmt("\"{x}\"", .{hash}));
     }
 }
 

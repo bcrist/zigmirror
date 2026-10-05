@@ -4,7 +4,7 @@ comptime {
 }
 
 pub fn main(init: std.process.Init) !void {
-    log.info("zigmirror {f} starting up...", .{ build_options.version });
+    log.info("zigmirror {f} starting up...", .{build_options.version});
 
     const config = try load_config(init.arena.allocator(), init.gpa, init.io, init.minimal.args);
 
@@ -48,7 +48,7 @@ pub fn main(init: std.process.Init) !void {
     loop.start();
     defer loop.finish_running();
 
-    const server_name = try std.fmt.allocPrint(init.arena.allocator(), "zigmirror/{f}", .{ build_options.version });
+    const server_name = try std.fmt.allocPrint(init.arena.allocator(), "zigmirror/{f}", .{build_options.version});
     for (config.listen) |host_and_port| {
         try server.lookup_and_start(host_and_port.host, host_and_port.port, .{ .start_options = .{
             .listen_options = .{
@@ -58,7 +58,7 @@ pub fn main(init: std.process.Init) !void {
             .temp_allocator_reservation_size = 1024 * 1024,
             .request_timeout = .fromSeconds(config.request_timeout_seconds),
             .server_name = server_name,
-        }});
+        } });
     }
 
     loop.begin_running();
@@ -103,7 +103,7 @@ pub fn main(init: std.process.Init) !void {
             &ctx.server_stats,
             &config,
         });
-        
+
         const action: std.posix.Sigaction = .{
             .handler = .{ .handler = &signal_handler },
             .mask = std.posix.sigemptyset(),
@@ -126,7 +126,6 @@ fn rate_limit_cleanup_task(io: std.Io, period_seconds: i64, rate_limit: *Rate_Li
     while (true) {
         try io.sleep(.fromSeconds(period_seconds), .awake);
         try rate_limit.cleanup(tempora.now_utc(io).timestamp_ms());
-
     }
 }
 
@@ -171,7 +170,7 @@ fn load_config(arena: std.mem.Allocator, gpa: std.mem.Allocator, io: std.Io, arg
 
     const config_file: std.Io.File = while (true) {
         log.info("Searching for {s} in {s}", .{ config_path, parent_path });
-        
+
         const dir = try std.Io.Dir.cwd().openDir(io, parent_path, .{});
         defer dir.close(io);
 

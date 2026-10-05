@@ -12,7 +12,7 @@ pub const Prewarm = struct {
         return .init_timeout(dl, .{ .duration = .{
             .clock = .awake,
             .raw = .fromSeconds(config.prewarm.max_wait_time_seconds),
-        }});
+        } });
     }
 
     pub fn init_timeout(dl: *Download_Permission, timeout: std.Io.Timeout) !Prewarm {
@@ -49,7 +49,7 @@ pub const Upstream = struct {
         return .init_timeout(dl, .{ .duration = .{
             .clock = .awake,
             .raw = .fromSeconds(config.upstream.max_wait_time_seconds),
-        }});
+        } });
     }
 
     pub fn init_timeout(dl: *Download_Permission, timeout: std.Io.Timeout) !Upstream {
@@ -87,14 +87,14 @@ pub const Downstream = struct {
         return .init_timeout(dl, .{ .duration = .{
             .clock = .awake,
             .raw = .fromSeconds(config.max_wait_time_seconds),
-        }});
+        } });
     }
 
     pub fn init_timeout(dl: *Download_Permission, timeout: std.Io.Timeout) !Downstream {
         dl.overload_semaphore.waitTimeout(dl.io, .{ .duration = .{
             .clock = .awake,
             .raw = .zero,
-        }}) catch |err| switch (err) {
+        } }) catch |err| switch (err) {
             error.Timeout => return error.InsufficientResources,
             else => |e| return e,
         };

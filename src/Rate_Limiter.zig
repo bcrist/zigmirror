@@ -45,7 +45,7 @@ pub fn get(self: *Rate_Limiter, request: *http.Request) !void {
                     });
                     return error.BadRequest;
                 };
-                
+
                 try self.check(ip, now);
             }
         } else if (!config.accept_without_x_forwarded_for) {

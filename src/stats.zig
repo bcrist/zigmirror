@@ -54,7 +54,7 @@ pub fn get(request: *http.Request, config: *const Config, server_stats: *Server_
     };
 
     var rate_limits: []Rate_Limit_Entry = &.{};
-    
+
     if (config.show_rate_limit_stats) {
         if (rate_limiter.config) |rlconfig| {
             try rate_limiter.mutex.lock(rate_limiter.io);
@@ -173,9 +173,9 @@ const Cache_Entry_Collection = struct {
 
             if (state.artifact) |a| {
                 artifact = a;
-                filename = std.fmt.allocPrint(arena, "{f}", .{ a }) catch "OOM!";
-                version = std.fmt.allocPrint(arena, "{f}", .{ a.version() }) catch "OOM!";
-                artifact_type = std.fmt.allocPrint(arena, "{f}", .{ a.artifact_type.fmt(&a.buf) }) catch "OOM!";
+                filename = std.fmt.allocPrint(arena, "{f}", .{a}) catch "OOM!";
+                version = std.fmt.allocPrint(arena, "{f}", .{a.version()}) catch "OOM!";
+                artifact_type = std.fmt.allocPrint(arena, "{f}", .{a.artifact_type.fmt(&a.buf)}) catch "OOM!";
                 eviction_score = state.order_score(self.now);
             }
 
@@ -197,7 +197,7 @@ const Cache_Entry_Collection = struct {
             }
 
             if (state.hash) |digest| {
-                hash = std.fmt.allocPrint(arena, "{x}", .{ digest }) catch "OOM";
+                hash = std.fmt.allocPrint(arena, "{x}", .{digest}) catch "OOM";
             }
         }
 
@@ -243,7 +243,7 @@ const Context = struct {
     pub const transfers = struct {
         pub const upstream = struct {
             pub fn bps(b: f32, w: *std.Io.Writer) std.Io.Writer.Error!void {
-                try w.print("{d:.1}", .{ fmt.si.value(b, "B/s") });
+                try w.print("{d:.1}", .{fmt.si.value(b, "B/s")});
             }
         };
         pub const downstream = upstream;
@@ -252,7 +252,7 @@ const Context = struct {
     pub const cache = struct {
         pub const mem = struct {
             pub fn bytes(b: usize, w: *std.Io.Writer) std.Io.Writer.Error!void {
-                try w.print("{d:.1}", .{ fmt.bytes(b) });
+                try w.print("{d:.1}", .{fmt.bytes(b)});
             }
 
             pub const entries = struct {
@@ -265,12 +265,12 @@ const Context = struct {
                 pub const requests_per_day = " ({d:.0}/d)";
 
                 pub fn first_request_time(ts: i64, w: *std.Io.Writer) std.Io.Writer.Error!void {
-                    try w.print("{f}", .{ DTO.from_timestamp_ms(ts, null).fmt(dtf) });
+                    try w.print("{f}", .{DTO.from_timestamp_ms(ts, null).fmt(dtf)});
                 }
                 pub const last_request_time = first_request_time;
 
                 pub fn request_duration_min(ms: i64, w: *std.Io.Writer) std.Io.Writer.Error!void {
-                    try w.print("{f}", .{ std.Io.Duration.fromMilliseconds(ms) });
+                    try w.print("{f}", .{std.Io.Duration.fromMilliseconds(ms)});
                 }
                 pub const request_duration_max = request_duration_min;
                 pub const request_duration_avg = request_duration_min;
@@ -281,7 +281,7 @@ const Context = struct {
 
     pub const rate_limits = struct {
         pub fn last_generation_time(ts: i64, w: *std.Io.Writer) std.Io.Writer.Error!void {
-            try w.print("{f}", .{ DTO.from_timestamp_ms(ts, null).fmt(dtf) });
+            try w.print("{f}", .{DTO.from_timestamp_ms(ts, null).fmt(dtf)});
         }
     };
 };

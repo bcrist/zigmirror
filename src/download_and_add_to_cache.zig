@@ -1,6 +1,6 @@
 pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, server_stats: *Server_Stats, config: *const Config, index: *Index, arena: std.mem.Allocator, _: Download_Permission.Upstream, _: Download_Permission.Downstream) !void {
     const artifact = maybe_artifact orelse return error.NotFound;
-    
+
     downstream(request, artifact, cache, server_stats) catch |err| switch (err) {
         error.NotFound, // retrying an artifact that previously 404'd
         error.NotInCache, // expected case
@@ -26,7 +26,7 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
             };
 
             if (upstream_future) |*f| try f.await(request.io);
-        }, 
+        },
         else => |e| return e,
     };
 
@@ -37,13 +37,13 @@ pub fn get(request: *http.Request, maybe_artifact: ?Artifact, cache: *Caches, se
 
 pub fn prewarm(io: std.Io, gpa: std.mem.Allocator, artifact: Artifact, cache: *Caches, server_stats: *Server_Stats, config: *const Config, downloads: *Download_Permission) error{Canceled}!void {
     const now = tempora.now_utc(io).timestamp_ms();
-    
+
     // skip if artifact already exists in either cache
     if (try cache.mem.get(artifact, .shared)) |ref| {
         defer ref.unlock();
         if (ref.ptr.data != .none) {
             ref.ptr.requests.hit_not_found(now);
-            log.debug("prewarm: {f} already exists in mem cache", .{ artifact });
+            log.debug("prewarm: {f} already exists in mem cache", .{artifact});
             return;
         }
     }
@@ -51,7 +51,7 @@ pub fn prewarm(io: std.Io, gpa: std.mem.Allocator, artifact: Artifact, cache: *C
         defer ref.unlock();
         if (ref.ptr.bytes != null) {
             ref.ptr.requests.hit_not_found(now);
-            log.debug("prewarm: {f} already exists in fs cache", .{ artifact });
+            log.debug("prewarm: {f} already exists in fs cache", .{artifact});
             return;
         }
     }
@@ -59,7 +59,7 @@ pub fn prewarm(io: std.Io, gpa: std.mem.Allocator, artifact: Artifact, cache: *C
     const prewarm_permission = Download_Permission.Prewarm.init(downloads, config) catch |err| switch (err) {
         error.Canceled => |e| return e,
         error.InsufficientResources => {
-            log.warn("prewarm: Timed out waiting for permission to prewarm {f}", .{ artifact });
+            log.warn("prewarm: Timed out waiting for permission to prewarm {f}", .{artifact});
             return;
         },
     };
@@ -68,10 +68,10 @@ pub fn prewarm(io: std.Io, gpa: std.mem.Allocator, artifact: Artifact, cache: *C
     const upstream_permission = Download_Permission.Upstream.init_timeout(downloads, .{ .duration = .{
         .clock = .awake,
         .raw = .fromSeconds(config.upstream.recheck_expired_index_interval_seconds),
-    }}) catch |err| switch (err) {
+    } }) catch |err| switch (err) {
         error.Canceled => |e| return e,
         error.InsufficientResources => {
-            log.warn("prewarm: Timed out waiting for permission to download {f}", .{ artifact });
+            log.warn("prewarm: Timed out waiting for permission to download {f}", .{artifact});
             return;
         },
     };
@@ -82,7 +82,7 @@ pub fn prewarm(io: std.Io, gpa: std.mem.Allocator, artifact: Artifact, cache: *C
         defer ref.unlock();
         if (ref.ptr.data != .none) {
             ref.ptr.requests.hit_not_found(now);
-            log.debug("prewarm: {f} already exists in mem cache", .{ artifact });
+            log.debug("prewarm: {f} already exists in mem cache", .{artifact});
             return;
         }
     }
@@ -90,11 +90,11 @@ pub fn prewarm(io: std.Io, gpa: std.mem.Allocator, artifact: Artifact, cache: *C
         defer ref.unlock();
         if (ref.ptr.bytes != null) {
             ref.ptr.requests.hit_not_found(now);
-            log.debug("prewarm: {f} already exists in fs cache", .{ artifact });
+            log.debug("prewarm: {f} already exists in fs cache", .{artifact});
             return;
         }
     }
-    
+
     const upstream_path = artifact.upstream_path(gpa) catch |err| switch (err) {
         error.OutOfMemory => |e| {
             log.err("prewarm: {t} while determining upstream path for {f}", .{ e, artifact });
@@ -117,7 +117,7 @@ fn init_upstream_transfer(transfer: *Upstream_Transfer, io: std.Io, artifact: Ar
         if (try cache.mem.get_or_add(artifact)) |ref| break ref;
         try cache.maybe_evict_from_mem_cache(server_stats, config);
     } else {
-        log.warn("Failed to add {f} to mem cache: could not find free slot", .{ artifact });
+        log.warn("Failed to add {f} to mem cache: could not find free slot", .{artifact});
         return error.ServiceUnavailable;
     };
     defer mem_ref.unlock();

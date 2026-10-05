@@ -33,7 +33,7 @@ pub fn execute(self: *Upstream_Transfer, io: std.Io, upstream_path: []const u8, 
     const request_started = tempora.now_utc(io).timestamp_ms();
 
     var query_string_buf: [256]u8 = undefined;
-    const query_string = std.fmt.bufPrint(&query_string_buf, "source={s}", .{ config.public_hostname }) catch "";
+    const query_string = std.fmt.bufPrint(&query_string_buf, "source={s}", .{config.public_hostname}) catch "";
 
     const uri: std.Uri = .{
         .scheme = "https",
@@ -81,7 +81,7 @@ pub fn execute(self: *Upstream_Transfer, io: std.Io, upstream_path: []const u8, 
         .timeout = .{ .duration = .{
             .raw = std.Io.Duration.fromMilliseconds(expected_head_time * 2),
             .clock = .awake,
-        }},
+        } },
     }) catch |err| switch (err) {
         error.Canceled => {
             self.status.store(.failed, .monotonic);
@@ -111,7 +111,7 @@ pub fn execute(self: *Upstream_Transfer, io: std.Io, upstream_path: []const u8, 
     };
     defer req.deinit();
 
-    const Response_Or_Timeout = union (enum) {
+    const Response_Or_Timeout = union(enum) {
         timeout: std.Io.Cancelable!void,
         response: std.Io.Cancelable!void,
     };
@@ -169,7 +169,7 @@ fn transfer_impl(self: *Upstream_Transfer, io: std.Io, gpa: std.mem.Allocator, r
                 log.err("Upstream {x}: [fail] WriteFailed: {t} while sending request", .{ self.id, e });
                 if (e == error.Canceled) return error.Canceled;
             } else {
-                log.err("Upstream {x}: [fail] WriteFailed while sending request", .{ self.id });
+                log.err("Upstream {x}: [fail] WriteFailed while sending request", .{self.id});
             }
             return;
         },
@@ -182,7 +182,7 @@ fn transfer_impl(self: *Upstream_Transfer, io: std.Io, gpa: std.mem.Allocator, r
                 if (e == error.Canceled) return error.Canceled;
                 log.err("Upstream {x}: [fail] WriteFailed: {t} while receiving response headers", .{ self.id, e });
             } else {
-                log.err("Upstream {x}: [fail] WriteFailed while receiving response headers", .{ self.id });
+                log.err("Upstream {x}: [fail] WriteFailed while receiving response headers", .{self.id});
             }
             return;
         },
@@ -192,7 +192,7 @@ fn transfer_impl(self: *Upstream_Transfer, io: std.Io, gpa: std.mem.Allocator, r
                 if (e == error.Canceled) return error.Canceled;
                 log.err("Upstream {x}: [fail] ReadFailed: {t} while receiving response headers", .{ self.id, e });
             } else {
-                log.err("Upstream {x}: [fail] ReadFailed while receiving response headers", .{ self.id });
+                log.err("Upstream {x}: [fail] ReadFailed while receiving response headers", .{self.id});
             }
             return;
         },
@@ -216,7 +216,7 @@ fn transfer_impl(self: *Upstream_Transfer, io: std.Io, gpa: std.mem.Allocator, r
         },
         else => |status| {
             self.status.store(.failed, .monotonic);
-            log.err("Upstream {x}: [{}] {f}", .{ self.id, @intFromEnum(status), req.uri });
+            log.err("Upstream {x}: [{}] {f}", .{ self.id, @backingInt(status), req.uri });
             return;
         },
     }
@@ -281,7 +281,7 @@ fn transfer_impl(self: *Upstream_Transfer, io: std.Io, gpa: std.mem.Allocator, r
                         if (e == error.Canceled) return error.Canceled;
                         log.err("Upstream {x}: [fail] ReadFailed: {t} while receiving content", .{ self.id, e });
                     } else {
-                        log.err("Upstream {x}: [fail] ReadFailed while receiving content", .{ self.id });
+                        log.err("Upstream {x}: [fail] ReadFailed while receiving content", .{self.id});
                     }
                     return;
                 },
@@ -291,7 +291,7 @@ fn transfer_impl(self: *Upstream_Transfer, io: std.Io, gpa: std.mem.Allocator, r
             collector.writeAll(buffered_bytes) catch |err| switch (err) {
                 error.WriteFailed => {
                     self.status.store(.failed, .monotonic);
-                    log.err("Upstream {x}: [fail] received too much content", .{ self.id });
+                    log.err("Upstream {x}: [fail] received too much content", .{self.id});
                     return;
                 },
             };
@@ -315,11 +315,10 @@ fn transfer_impl(self: *Upstream_Transfer, io: std.Io, gpa: std.mem.Allocator, r
                 last_reported_transfer_speed = end_ts;
                 bytes_since_last_reported_transfer_speed = 0;
             }
-            
+
             hasher.update(buffered_bytes);
             reader.toss(buffered_bytes.len);
         }
-
     } else {
         var collector: std.Io.Writer.Allocating = .init(gpa);
         defer collector.deinit();
@@ -333,7 +332,7 @@ fn transfer_impl(self: *Upstream_Transfer, io: std.Io, gpa: std.mem.Allocator, r
                         if (e == error.Canceled) return error.Canceled;
                         log.err("Upstream {x}: [fail] ReadFailed: {t} while receiving content", .{ self.id, e });
                     } else {
-                        log.err("Upstream {x}: [fail] ReadFailed while receiving content", .{ self.id });
+                        log.err("Upstream {x}: [fail] ReadFailed while receiving content", .{self.id});
                     }
                     return;
                 },
@@ -343,7 +342,7 @@ fn transfer_impl(self: *Upstream_Transfer, io: std.Io, gpa: std.mem.Allocator, r
             collector.writer.writeAll(buffered_bytes) catch |err| switch (err) {
                 error.WriteFailed => {
                     self.status.store(.failed, .monotonic);
-                    log.err("Upstream {x}: [fail] OutOfMemory while allocating content buffer", .{ self.id });
+                    log.err("Upstream {x}: [fail] OutOfMemory while allocating content buffer", .{self.id});
                     return;
                 },
             };
@@ -384,7 +383,7 @@ fn transfer_impl(self: *Upstream_Transfer, io: std.Io, gpa: std.mem.Allocator, r
     self.hash = hasher.finalResult();
     if (self.bytes_available.load(.seq_cst) != self.data.len) {
         self.status.store(.failed, .monotonic);
-        log.err("Upstream {x}: [fail] did not receive full content", .{ self.id });
+        log.err("Upstream {x}: [fail] did not receive full content", .{self.id});
         return;
     }
     self.status.store(.complete, .monotonic);

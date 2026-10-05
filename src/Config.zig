@@ -6,7 +6,7 @@ public_hostname: []const u8 = "localhost:8080",
 listen: []const struct {
     host: []const u8 = "127.0.0.1",
     port: u16 = 8080,
-} = &.{ .{} },
+} = &.{.{}},
 
 cache: struct {
     mem: struct {
@@ -113,7 +113,7 @@ prewarm: struct {
     /// Prewarm connections also count towards upstream.max_connections, so prewarm.max_connections > upstream.max_connections is equivalent to prewarm.max_connections == upstream.max_connections.
     /// If set to 0, prewarming will be disabled.
     max_connections: u32 = 1,
-    
+
     /// The maximum amount of time a prewarm request can wait for a slot in `prewarm.max_connections` to open up.
     max_wait_time_seconds: u32 = 45 * std.time.s_per_min,
 
@@ -197,7 +197,7 @@ const Writer_Context = struct {
             pub const inline_fields = &.{ "max_entries", "max_bytes" };
             pub fn max_bytes(bytes: usize, writer: *sx.Writer, wrap: bool) !void {
                 if (wrap) try writer.expression("max_bytes");
-                try writer.print_quoted("{d}", .{ fmt.bytes(bytes) });
+                try writer.print_quoted("{d}", .{fmt.bytes(bytes)});
                 if (wrap) try writer.close();
             }
         };
