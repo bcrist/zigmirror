@@ -175,7 +175,7 @@ const Content = struct {
         const master_version_value = master_value.object.get("version") orelse return error.BadGateway;
         if (master_version_value != .string) return error.BadGateway;
 
-        const master_src_name = try std.fmt.allocPrint(parsed.arena.allocator(), "zig-{s}.tar.xz", .{master_version_value.string});
+        const master_src_name = try parsed.arena.allocator().print("zig-{s}.tar.xz", .{master_version_value.string});
         const master_src: Artifact = try .parse(master_src_name);
 
         const master_date_value = master_value.object.get("date") orelse return error.BadGateway;
@@ -213,7 +213,7 @@ const Content = struct {
 
                 const artifact = Artifact.parse(tarball) catch continue;
 
-                tarball = try std.fmt.allocPrint(parsed.arena.allocator(), "https://{s}/{s}", .{ config.public_hostname, tarball });
+                tarball = try parsed.arena.allocator().print("https://{s}/{s}", .{ config.public_hostname, tarball });
                 try artifact_object.put(parsed.arena.allocator(), "tarball", .{ .string = tarball });
 
                 if (artifact.version().order(min_prewarm_version) != .lt) {
@@ -240,7 +240,7 @@ const Content = struct {
         };
 
         const hash = hasher.hasher.finalResult();
-        const etag = try std.fmt.allocPrint(loop.gpa, "{x}", .{hash});
+        const etag = try loop.gpa.print("{x}", .{hash});
         errdefer loop.gpa.free(etag);
 
         return .{

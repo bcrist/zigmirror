@@ -48,7 +48,7 @@ pub fn main(init: std.process.Init) !void {
     loop.start();
     defer loop.finish_running();
 
-    const server_name = try std.fmt.allocPrint(init.arena.allocator(), "zigmirror/{f}", .{build_options.version});
+    const server_name = try init.arena.allocator().print("zigmirror/{f}", .{build_options.version});
     for (config.listen) |host_and_port| {
         try server.lookup_and_start(host_and_port.host, host_and_port.port, .{ .start_options = .{
             .listen_options = .{

@@ -173,9 +173,9 @@ const Cache_Entry_Collection = struct {
 
             if (state.artifact) |a| {
                 artifact = a;
-                filename = std.fmt.allocPrint(arena, "{f}", .{a}) catch "OOM!";
-                version = std.fmt.allocPrint(arena, "{f}", .{a.version()}) catch "OOM!";
-                artifact_type = std.fmt.allocPrint(arena, "{f}", .{a.artifact_type.fmt(&a.buf)}) catch "OOM!";
+                filename = arena.print("{f}", .{a}) catch "OOM!";
+                version = arena.print("{f}", .{a.version()}) catch "OOM!";
+                artifact_type = arena.print("{f}", .{a.artifact_type.fmt(&a.buf)}) catch "OOM!";
                 eviction_score = state.order_score(self.now);
             }
 
@@ -197,7 +197,7 @@ const Cache_Entry_Collection = struct {
             }
 
             if (state.hash) |digest| {
-                hash = std.fmt.allocPrint(arena, "{x}", .{digest}) catch "OOM";
+                hash = arena.print("{x}", .{digest}) catch "OOM";
             }
         }
 

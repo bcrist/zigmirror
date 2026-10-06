@@ -223,23 +223,23 @@ test "parse/format round trip" {
 
 fn test_parse_format(input: []const u8) !void {
     const artifact = try parse(input);
-    const output = try std.fmt.allocPrint(std.testing.allocator, "{f}", .{artifact});
+    const output = try std.testing.allocator.print("{f}", .{artifact});
     defer std.testing.allocator.free(output);
     try std.testing.expectEqualStrings(input, output);
 }
 
 pub fn upstream_path(self: *const Artifact, allocator: std.mem.Allocator) ![]const u8 {
     if (self.artifact_type == .devkit) {
-        return try std.fmt.allocPrint(allocator, "/deps/{f}", .{
+        return try allocator.print("/deps/{f}", .{
             self.*,
         });
     } else if (self.pre == null) {
-        return try std.fmt.allocPrint(allocator, "/download/{f}/{f}", .{
+        return try allocator.print("/download/{f}/{f}", .{
             self.version(),
             self.*,
         });
     } else {
-        return try std.fmt.allocPrint(allocator, "/builds/{f}", .{
+        return try allocator.print("/builds/{f}", .{
             self.*,
         });
     }
@@ -247,16 +247,16 @@ pub fn upstream_path(self: *const Artifact, allocator: std.mem.Allocator) ![]con
 
 pub fn upstream_url(self: *const Artifact, allocator: std.mem.Allocator) ![]const u8 {
     if (self.artifact_type == .devkit) {
-        return try std.fmt.allocPrint(allocator, "https://ziglang.org/deps/{f}", .{
+        return try allocator.print("https://ziglang.org/deps/{f}", .{
             self.*,
         });
     } else if (self.pre == null) {
-        return try std.fmt.allocPrint(allocator, "https://ziglang.org/download/{f}/{f}", .{
+        return try allocator.print("https://ziglang.org/download/{f}/{f}", .{
             self.version(),
             self.*,
         });
     } else {
-        return try std.fmt.allocPrint(allocator, "https://ziglang.org/builds/{f}", .{
+        return try allocator.print("https://ziglang.org/builds/{f}", .{
             self.*,
         });
     }
