@@ -281,8 +281,11 @@ pub const Type = union(enum) {
 
         pub fn format(self: Formatter, writer: *std.Io.Writer) std.Io.Writer.Error!void {
             try writer.writeAll(@tagName(self.artifact_type));
-            if (self.artifact_type == .build) {
-                try writer.print(": {s}", .{self.artifact_type.build.slice(self.buf)});
+            switch (self.artifact_type) {
+                .source, .bootstrap => {},
+                .build, .devkit => |buf| {
+                    try writer.print(": {s}", .{buf.slice(self.buf)});
+                },
             }
         }
     };
