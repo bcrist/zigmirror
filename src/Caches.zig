@@ -86,9 +86,9 @@ fn cleanup_fs(cache: *Caches, server_stats: *Server_Stats, config: *const Config
 
 pub fn maybe_evict_from_mem_cache(cache: *Caches, server_stats: *Server_Stats, config: *const Config) error{Canceled}!void {
     log.debug("maybe_evict_from_mem_cache", .{});
-    const mem_ref = cache.mem.get_worst() catch |err| switch (err) {
+    const mem_ref = (cache.mem.get_worst() catch |err| switch (err) {
         error.Canceled => |e| return e,
-    } orelse return;
+    }) orelse return;
     cache.evict_from_mem_cache(server_stats, config, mem_ref) catch |err| switch (err) {
         error.Canceled => |e| return e,
         else => log.warn("Error while trying to evict {f} from memory cache: {t}", .{ mem_ref.ptr.artifact.?, err }),

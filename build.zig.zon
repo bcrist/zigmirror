@@ -1,7 +1,7 @@
 .{
     .name = .zigmirror,
     .fingerprint = 0xe8542ef7ee8a8b70,
-    .version = "1.2.49",
+    .version = "1.2.50",
     .minimum_zig_version = "0.18.0-dev.349+d924f83bf",
     .paths = .{
         "src",
@@ -13,27 +13,27 @@
     },
     .dependencies = .{
         .Temp_Allocator = .{
-            .url = "git+https://codeberg.org/bcrist/zig-tempallocator#e922e2aaa4c6a3d64aa93ffc1eeb29eed0379682",
-            .hash = "Temp_Allocator-1.2.1-tT3p3G1PAADJjMWbGbIE3sqbMhTQuviqGR9IS0tAFIPD",
+            .url = "git+https://codeberg.org/bcrist/zig-tempallocator#528d12dc2a6c0d356ac3dbabe9fd7155f427dee3",
+            .hash = "Temp_Allocator-1.3.4-tT3p3KhbAADlOACF5yGmevpDfNBlwE0NNFWcCWeDFq8g",
         },
         .fmt_helper = .{
             .url = "git+https://codeberg.org/bcrist/zig-fmthelper#45484ef7f684209b9814fb7c0b2b2cff8ca1e3c3",
             .hash = "fmt_helper-0.2.1-yH32_e5sAAB52pGtnfTd2NiKJd99g0WymfERmlzli7mS",
         },
         .shittip = .{
-            .url = "git+https://codeberg.org/bcrist/shittip?ref=zig-master#3b85164edcdae45d8191b0b710b35a44dfe5d019",
-            .hash = "shittip-0.5.16-l5sQcaO3AgC1Tev07PFqncg3XHa54qX6k5QZtWAwyDET",
+            .url = "git+https://codeberg.org/bcrist/shittip?ref=zig-master#3e3ce86640688de3e603b09b46281e3f2ead2289",
+            .hash = "shittip-0.5.17-l5sQcaW3AgANkMb8-BKhZ4zH_p_Eyq_dgMj6TlxDOvT8",
         },
         .sx = .{
             .url = "git+https://codeberg.org/bcrist/zig-sx?ref=zig-master#ae907a46ea03fd3d963476c31e7ee53c861d3eaf",
             .hash = "sx-1.2.3-0vgbar_YAAC9BWcVkWkgVjHKWkfCmXtAfZhz4hJRzDZ3",
         },
         .tempora = .{
-            .url = "git+https://codeberg.org/bcrist/tempora#11ae1882e8e40a45f0fdfae325110802930cebde",
-            .hash = "tempora-0.7.0-GTyeDUYxFwDxxKrDOi15rHMn5qO9C-jS_pJZcCy3UxmO",
+            .url = "git+https://codeberg.org/bcrist/tempora#3032af240e63bc1a58ed579ef8325a686822c0d4",
+            .hash = "tempora-0.7.1-GTyeDV4xFwDq8T3ufuED3KJFQSmcpCKmzmSzd5YEG0z3",
         },
         .zkittle = .{
-            .url = "git+https://codeberg.org/bcrist/zkittle?ref=zig-master#e70339e1d620a6a9f488e3057ffda0ee41f3e9f5",
+            .url = "git+https://codeberg.org/bcrist/zkittle#e70339e1d620a6a9f488e3057ffda0ee41f3e9f5",
             .hash = "zkittle-0.2.6-Nt34TFlYAQDv9VhuTxcSk6e3hw-waHLxOMg0nh-k9j7m",
         },
         .dizzy = .{

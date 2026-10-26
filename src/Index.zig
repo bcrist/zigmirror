@@ -135,7 +135,7 @@ pub fn should_skip_upstream(self: *Index, io: std.Io, artifact: Artifact) bool {
         break :locked current.master_src;
     };
 
-    const is_reasonable = artifact.major == master.major and artifact.minor +% 1 >= master.minor and artifact.minor <= master.minor +% 1 or artifact.major == master.major +% 1 or artifact.major +% 1 == master.major;
+    const is_reasonable = (artifact.major == master.major and artifact.minor +% 1 >= master.minor and artifact.minor <= master.minor +% 1) or artifact.major == master.major +% 1 or artifact.major +% 1 == master.major;
 
     return !is_reasonable;
 }

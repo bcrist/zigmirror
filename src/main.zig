@@ -95,7 +95,7 @@ pub fn main(init: std.process.Init) !void {
         });
     }
 
-    if (std.posix.Sigaction != void) {
+    if (@import("builtin").target.os.tag != .windows and std.posix.Sigaction != void) {
         signal_handler_io = loop.io;
         try server.tasks.group.concurrent(loop.io, signal_handler_shutdown_task, .{
             &loop,
